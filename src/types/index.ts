@@ -1,0 +1,53 @@
+import { RoleName, Project } from '@prisma/client';
+
+// User types
+export interface User {
+  id: string;
+  name?: string | null;
+  email: string;
+  role: RoleName;
+  image?: string | null;
+}
+
+// CCTV types
+export interface CCTV {
+  id: string;
+  name: string;
+  description?: string | null;
+  location?: string | null;
+  projectId: string;
+  streamUrl: string;
+  status: 'ONLINE' | 'OFFLINE' | 'MAINTENANCE';
+  project?: Project;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// Props types
+export interface CCTVListProps {
+  user: User;
+}
+
+export interface CCTVViewerProps {
+  cameraId: string;
+}
+
+export interface CCTVDeleteModalProps {
+  camera: {
+    id: string;
+    name: string;
+    location?: string | null;
+    project?: {
+      name: string;
+    };
+  };
+  isOpen: boolean;
+  onClose: () => void;
+  onSuccess?: () => void;
+}
+
+// Project types
+export interface ProjectOption {
+  id: string;
+  name: string;
+}

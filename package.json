@@ -11,16 +11,22 @@
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.11.1",
+    "@hookform/resolvers": "^3.3.4",
     "@prisma/client": "^5.21.1",
     "@tanstack/react-query": "^5.90.12",
     "@tanstack/react-query-devtools": "^5.91.1",
     "axios": "^1.13.2",
     "bcryptjs": "^3.0.3",
+    "clsx": "^2.1.0",
+    "lucide-react": "^0.460.0",
     "next": "16.0.10",
     "next-auth": "^4.24.13",
     "prisma": "^5.21.1",
     "react": "19.2.1",
     "react-dom": "19.2.1",
+    "react-hook-form": "^7.50.1",
+    "sonner": "^1.4.0",
+    "tailwind-merge": "^2.2.1",
     "zod": "^4.1.13"
   },
   "devDependencies": {
