@@ -1,0 +1,157 @@
+import { authOptions } from "@/auth/config";
+import { prisma } from "@/lib/prisma";
+import { hash } from "bcryptjs";
+import { getServerSession } from "next-auth";
+import { NextResponse } from "next/server";
+import { z } from "zod";
+
+const allowedRoles = ["CLIENT", "WORKER"] as const;
+
+const createUserSchema = z.object({
+  name: z.string().trim().min(2).optional(),
+  email: z.string().email(),
+  password: z.string().min(6),
+  role: z.enum(allowedRoles),
+  projectIds: z.array(z.string().uuid()).optional(),
+});
+
+function isAdmin(session: Awaited<ReturnType<typeof getServerSession>>) {
+  return session?.user?.role === "ADMINISTRATOR";
+}
+
+export async function GET() {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.email) {
+      return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+    }
+    if (!isAdmin(session)) {
+      return NextResponse.json({ message: "Forbidden" }, { status: 403 });
+    }
+
+    const users = await prisma.user.findMany({
+      where: {
+        deletedAt: null,
+        role: { name: { in: allowedRoles } },
+      },
+      include: {
+        role: { select: { name: true } },
+        projectUsers: {
+          where: { project: { deletedAt: null } },
+          include: { project: { select: { id: true, name: true } } },
+        },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    const payload = users.map((user) => ({
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      role: user.role?.name ?? null,
+      projects: user.projectUsers.map((pu) => pu.project),
+    }));
+
+    return NextResponse.json(payload);
+  } catch (error) {
+    console.error("Error fetching users:", error);
+    return NextResponse.json({ message: "Internal server error" }, { status: 500 });
+  }
+}
+
+export async function POST(req: Request) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.email) {
+      return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+    }
+    if (!isAdmin(session)) {
+      return NextResponse.json({ message: "Forbidden" }, { status: 403 });
+    }
+
+    const body = await req.json();
+    const parsed = createUserSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { errors: parsed.error.flatten().fieldErrors },
+        { status: 400 }
+      );
+    }
+
+    const { name, email, password, role, projectIds } = parsed.data;
+    const uniqueProjectIds = Array.from(
+      new Set((projectIds ?? []).filter((id) => id))
+    );
+
+    if (role === "WORKER" && uniqueProjectIds.length > 1) {
+      return NextResponse.json(
+        { message: "Worker hanya boleh memiliki 1 project." },
+        { status: 400 }
+      );
+    }
+
+    const roleRecord = await prisma.role.findFirst({
+      where: { name: role },
+      select: { id: true },
+    });
+    if (!roleRecord) {
+      return NextResponse.json({ message: "Role tidak ditemukan." }, { status: 400 });
+    }
+
+    if (uniqueProjectIds.length > 0) {
+      const projects = await prisma.project.findMany({
+        where: { id: { in: uniqueProjectIds }, deletedAt: null },
+        select: { id: true },
+      });
+      if (projects.length !== uniqueProjectIds.length) {
+        return NextResponse.json(
+          { message: "Project tidak valid atau sudah dihapus." },
+          { status: 400 }
+        );
+      }
+    }
+
+    const passwordHash = await hash(password, 10);
+
+    const result = await prisma.$transaction(async (tx) => {
+      const user = await tx.user.create({
+        data: {
+          name: name?.trim() ? name.trim() : null,
+          email,
+          passwordHash,
+          roleId: roleRecord.id,
+        },
+      });
+
+      if (uniqueProjectIds.length > 0) {
+        await tx.projectUser.createMany({
+          data: uniqueProjectIds.map((projectId) => ({
+            projectId,
+            userId: user.id,
+            role: "MEMBER",
+          })),
+          skipDuplicates: true,
+        });
+      }
+
+      return user;
+    });
+
+    return NextResponse.json({ id: result.id }, { status: 201 });
+  } catch (error: any) {
+    if (error?.code === "P2002") {
+      return NextResponse.json(
+        { message: "Email sudah digunakan." },
+        { status: 409 }
+      );
+    }
+    if (error?.code === "P2003") {
+      return NextResponse.json(
+        { message: "Project tidak valid atau tidak ditemukan." },
+        { status: 400 }
+      );
+    }
+    console.error("Error creating user:", error);
+    return NextResponse.json({ message: "Internal server error" }, { status: 500 });
+  }
+}

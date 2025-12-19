@@ -1,0 +1,239 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// --- Core identity ---
+model Role {
+  id    String @id @default(uuid()) @db.Uuid
+  name  RoleName
+  users User[]
+
+  @@map("roles")
+}
+
+model User {
+  id              String           @id @default(uuid()) @db.Uuid
+  name            String?          @db.VarChar(255)
+  email           String           @unique @db.VarChar(255)
+  emailVerified   DateTime?
+  image           String?
+  passwordHash    String?
+  roleId          String?          @db.Uuid
+  role            Role?            @relation(fields: [roleId], references: [id])
+  projectUsers    ProjectUser[]
+  messageChannels MessageChannel[] @relation("MessageChannelCreatedBy")
+  messages        Message[]
+  messageReads    MessageRead[]
+  accounts        Account[]
+  sessions        Session[]
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  deletedAt       DateTime?
+
+  @@map("users")
+}
+
+// --- Domain: vessel, voyage, ports, telemetry ---
+model Project {
+  id             String           @id @default(uuid()) @db.Uuid
+  name           String           @db.VarChar(255)
+  projectUsers   ProjectUser[]
+  cameras        Camera[]
+  voyages        Voyage[]
+  messageChannels MessageChannel[]
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  deletedAt      DateTime?
+
+  @@map("projects")
+}
+
+model ProjectUser {
+  id        String   @id @default(uuid()) @db.Uuid
+  projectId String   @db.Uuid
+  userId    String   @db.Uuid
+  role      String   @default("MEMBER") @db.VarChar(50) // ADMIN, MEMBER, VIEWER
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([projectId, userId]) // Each user can only have one role per project
+  @@map("project_users")
+}
+
+model Camera {
+  id         String   @id @default(uuid()) @db.Uuid
+  projectId  String   @db.Uuid
+  urlCamera  String   @map("ulr_camera")
+  name       String?  @db.VarChar(255)
+  project    Project  @relation(fields: [projectId], references: [id])
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@map("cameras")
+}
+
+model Port {
+  id        String     @id @default(uuid()) @db.Uuid
+  name      String?    @db.VarChar(255)
+  latitude  Decimal?   @db.Decimal(10, 6)
+  longitude Decimal?   @db.Decimal(10, 6)
+  voyageLegsFrom VoyageLeg[] @relation("VoyageLegFromPort")
+  voyageLegsTo   VoyageLeg[] @relation("VoyageLegToPort")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("ports")
+}
+
+model Voyage {
+  id        String     @id @default(uuid()) @db.Uuid
+  projectId String     @db.Uuid
+  name      String?    @db.VarChar(255)
+  status    String?    @db.VarChar(255)
+  etd       DateTime?
+  eta       DateTime?
+  project   Project    @relation(fields: [projectId], references: [id])
+  legs      VoyageLeg[]
+  positionReports PositionReport[]
+  timelineEvents TimelineEvent[]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@map("voyages")
+}
+
+model VoyageLeg {
+  id          String   @id @default(uuid()) @db.Uuid
+  voyageId    String   @db.Uuid
+  sequence    Int?     @map("squence")
+  fromPortId  String?  @db.Uuid
+  toPortId    String?  @db.Uuid
+  distanceNm  Decimal? @db.Decimal(10, 2)
+  voyage      Voyage   @relation(fields: [voyageId], references: [id])
+  fromPort    Port?    @relation("VoyageLegFromPort", fields: [fromPortId], references: [id])
+  toPort      Port?    @relation("VoyageLegToPort", fields: [toPortId], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("voyages_leg")
+}
+
+model PositionReport {
+  id          String   @id @default(uuid()) @db.Uuid
+  voyageId    String   @db.Uuid
+  reportedAt  DateTime @map("reported_at")
+  latitude    Decimal? @db.Decimal(10, 6)
+  longitude   Decimal? @db.Decimal(10, 6)
+  speedKn     Decimal? @db.Decimal(10, 2)
+  headingDeg  Decimal? @db.Decimal(10, 2)
+  voyage      Voyage   @relation(fields: [voyageId], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("position_reports")
+}
+
+model TimelineEvent {
+  id          String   @id @default(uuid()) @db.Uuid
+  voyageId    String   @db.Uuid
+  occurredAt  DateTime @map("occurred_at")
+  title       String?  @db.VarChar(255)
+  description String?
+  voyage      Voyage   @relation(fields: [voyageId], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("timeline_events")
+}
+
+// --- Messaging ---
+model MessageChannel {
+  id          String    @id @default(uuid()) @db.Uuid
+  projectId   String    @db.Uuid
+  name        String?   @db.VarChar(255)
+  type        String?   @db.VarChar(255)
+  createdById String?   @db.Uuid @map("create_by")
+  project     Project   @relation(fields: [projectId], references: [id])
+  createdBy   User?     @relation("MessageChannelCreatedBy", fields: [createdById], references: [id])
+  messages    Message[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@map("message_channel")
+}
+
+model Message {
+  id               String   @id @default(uuid()) @db.Uuid
+  messageChannelId String   @db.Uuid
+  senderId         String?  @db.Uuid
+  senderType       String?  @db.VarChar(255)
+  title            String?  @db.VarChar(255)
+  body             String?
+  channel          MessageChannel @relation(fields: [messageChannelId], references: [id])
+  sender           User?          @relation(fields: [senderId], references: [id])
+  reads            MessageRead[]
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@map("message")
+}
+
+model MessageRead {
+  id        String   @id @default(uuid()) @db.Uuid
+  messageId String   @unique @db.Uuid
+  userId    String   @db.Uuid
+  message   Message  @relation(fields: [messageId], references: [id])
+  user      User     @relation(fields: [userId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("message_reads")
+}
+
+// --- NextAuth tables ---
+model Account {
+  id                 String  @id @default(uuid()) @db.Uuid
+  userId             String  @db.Uuid
+  type               String
+  provider           String
+  providerAccountId  String
+  refresh_token      String?
+  access_token       String?
+  expires_at         Int?
+  token_type         String?
+  scope              String?
+  id_token           String?
+  session_state      String?
+  user               User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(uuid()) @db.Uuid
+  sessionToken String   @unique
+  userId       String   @db.Uuid
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+enum RoleName {
+  ADMINISTRATOR
+  CLIENT
+  WORKER
+}
