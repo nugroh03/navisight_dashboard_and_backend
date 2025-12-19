@@ -54,19 +54,15 @@ export default function Home() {
         <div className='grid w-full items-center gap-12 lg:grid-cols-[1.15fr_1fr]'>
           <section className='space-y-8'>
             <div className='space-y-4'>
-              <p className='text-sm font-semibold text-[var(--color-primary-strong)]'>
-                Secure Login · App Router
-              </p>
               <h1 className='text-4xl font-semibold leading-tight text-[var(--color-text)] lg:text-5xl'>
-                Masuk ke konsol armada dengan proteksi berlapis dan tampilan
-                modern.
+                Masuk ke konsol armada dengan tampilan modern.
               </h1>
               <p className='max-w-2xl text-base text-[var(--color-muted)] lg:text-lg'>
-                Modul dashboard operasional, voyage, messaging, dan CCTV.
+                Modul dashboard operasional CCTV, voyage .
               </p>
             </div>
 
-            <div className='grid gap-4 sm:grid-cols-2 lg:grid-cols-3'>
+            {/* <div className='grid gap-4 sm:grid-cols-2 lg:grid-cols-3'>
               {highlights.map((item) => (
                 <div
                   key={item.title}
@@ -80,7 +76,7 @@ export default function Home() {
                   </p>
                 </div>
               ))}
-            </div>
+            </div> */}
           </section>
 
           <section className='card border-white/60 bg-white/90 p-10 shadow-2xl backdrop-blur'>
@@ -91,10 +87,10 @@ export default function Home() {
               <h2 className='text-3xl font-semibold text-[var(--color-text)]'>
                 Portal NAVISIGHT
               </h2>
-              <p className='text-sm text-[var(--color-muted)]'>
+              {/* <p className='text-sm text-[var(--color-muted)]'>
                 Gunakan akun administrator dummy untuk akses awal. Kredensial
                 tersimpan di database melalui seeder.
-              </p>
+              </p> */}
             </header>
 
             <form className='space-y-5' onSubmit={handleSubmit}>
@@ -164,10 +160,10 @@ export default function Home() {
                 {loading ? 'Memverifikasi...' : 'Masuk dengan kredensial'}
               </button>
 
-              <div className='rounded-xl border border-[var(--color-border)] bg-[#f8fafc] px-4 py-3 text-xs text-[var(--color-muted)]'>
+              {/* <div className='rounded-xl border border-[var(--color-border)] bg-[#f8fafc] px-4 py-3 text-xs text-[var(--color-muted)]'>
                 Akun dummy administrator: <strong>admin@navisight.test</strong>{' '}
                 / <strong>Admin123!</strong>
-              </div>
+              </div> */}
             </form>
           </section>
         </div>
