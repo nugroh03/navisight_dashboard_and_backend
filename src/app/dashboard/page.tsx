@@ -33,29 +33,29 @@ export default function DashboardPage() {
   };
 
   return (
-    <div className='space-y-6'>
+    <div className='space-y-4 md:space-y-6 pb-20 md:pb-0'>
       {/* Header */}
-      <div className='card border-[var(--color-border)] bg-white p-8 shadow-lg'>
-        <p className='text-sm font-semibold uppercase tracking-[0.12em] text-[var(--color-primary-strong)]'>
+      <div className='card border-[var(--color-border)] bg-white p-4 md:p-8 shadow-lg'>
+        <p className='text-xs md:text-sm font-semibold uppercase tracking-[0.12em] text-[var(--color-primary-strong)]'>
           Dashboard
         </p>
-        <h1 className='mt-3 text-2xl font-semibold text-[var(--color-text)]'>
+        <h1 className='mt-2 md:mt-3 text-xl md:text-2xl font-semibold text-[var(--color-text)]'>
           Selamat datang di NAVISIGHT
         </h1>
-        <p className='mt-2 text-[var(--color-muted)]'>
+        <p className='mt-1 md:mt-2 text-sm md:text-base text-[var(--color-muted)]'>
           Monitoring CCTV dan manajemen proyek dalam satu platform.
         </p>
       </div>
 
       {/* CCTV Grid */}
-      <div className='card border-[var(--color-border)] bg-white p-6 shadow-lg'>
-        <div className='flex items-center justify-between mb-6'>
-          <h2 className='text-xl font-semibold text-[var(--color-text)]'>
+      <div className='card border-[var(--color-border)] bg-white p-4 md:p-6 shadow-lg'>
+        <div className='flex items-center justify-between mb-4 md:mb-6'>
+          <h2 className='text-lg md:text-xl font-semibold text-[var(--color-text)]'>
             Live CCTV Monitoring
           </h2>
           <Link
             href='/dashboard/cctv'
-            className='text-sm font-medium text-[var(--color-primary)] hover:text-[var(--color-primary-strong)]'
+            className='text-xs md:text-sm font-medium text-[var(--color-primary)] hover:text-[var(--color-primary-strong)]'
           >
             Lihat Semua →
           </Link>

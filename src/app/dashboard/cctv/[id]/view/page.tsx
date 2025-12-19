@@ -49,20 +49,29 @@ export default function ViewCCTVPage() {
 
   if (cameraLoading) {
     return (
-      <div className='flex items-center justify-center h-64'>
-        <div className='animate-spin rounded-full h-8 w-8 border-b-2 border-[var(--color-primary-strong)]'></div>
+      <div className='flex items-center justify-center min-h-[50vh] pb-20 md:pb-0'>
+        <div className='text-center'>
+          <div className='animate-spin rounded-full h-8 w-8 border-b-2 border-[var(--color-primary-strong)] mx-auto'></div>
+          <p className='text-sm text-[var(--color-muted)] mt-3'>
+            Memuat kamera...
+          </p>
+        </div>
       </div>
     );
   }
 
   if (!camera) {
     return (
-      <div className='card p-12 text-center'>
-        <p className='text-[var(--color-muted)] mb-4'>Kamera tidak ditemukan</p>
+      <div className='card p-8 md:p-12 text-center mx-4 md:mx-0 mt-4 md:mt-0'>
+        <Camera className='h-12 w-12 md:h-16 md:w-16 mx-auto text-[var(--color-muted)] opacity-50 mb-4' />
+        <p className='text-sm md:text-base text-[var(--color-muted)] mb-4'>
+          Kamera tidak ditemukan
+        </p>
         <button
           onClick={() => router.push('/dashboard/cctv')}
-          className='btn-primary inline-flex items-center gap-2'
+          className='btn-primary inline-flex items-center gap-2 text-sm md:text-base'
         >
+          <ArrowLeft className='h-4 w-4' />
           Kembali ke Daftar CCTV
         </button>
       </div>
@@ -119,46 +128,46 @@ export default function ViewCCTVPage() {
   };
 
   return (
-    <div className='space-y-6'>
+    <div className='space-y-4 md:space-y-6 pb-20 md:pb-0'>
       {/* Header */}
-      <div className='card p-6'>
-        <div className='flex items-center justify-between'>
-          <div className='flex items-center gap-4'>
+      <div className='card p-4 md:p-6'>
+        <div className='flex flex-col gap-4 md:flex-row md:items-center md:justify-between'>
+          <div className='flex items-center gap-3 md:gap-4'>
             <Link
               href='/dashboard/cctv'
-              className='w-10 h-10 flex items-center justify-center rounded-lg hover:bg-gray-100 transition-colors'
+              className='w-10 h-10 flex items-center justify-center rounded-lg hover:bg-gray-100 transition-colors flex-shrink-0'
             >
               <ArrowLeft className='h-5 w-5 text-[var(--color-text)]' />
             </Link>
-            <div className='flex items-center gap-3'>
-              <div className='w-12 h-12 bg-[var(--color-primary)]/10 rounded-xl flex items-center justify-center'>
-                <Camera className='h-6 w-6 text-[var(--color-primary-strong)]' />
+            <div className='flex items-center gap-3 min-w-0'>
+              <div className='w-10 h-10 md:w-12 md:h-12 bg-[var(--color-primary)]/10 rounded-xl flex items-center justify-center flex-shrink-0'>
+                <Camera className='h-5 w-5 md:h-6 md:w-6 text-[var(--color-primary-strong)]' />
               </div>
-              <div>
-                <h1 className='text-xl font-semibold text-[var(--color-text)]'>
+              <div className='min-w-0'>
+                <h1 className='text-base md:text-xl font-semibold text-[var(--color-text)] truncate'>
                   {camera.name}
                 </h1>
-                <p className='text-sm text-[var(--color-muted)] mt-0.5'>
+                <p className='text-xs md:text-sm text-[var(--color-muted)] mt-0.5 truncate'>
                   {camera.location || 'Lokasi tidak diset'}
                 </p>
               </div>
             </div>
           </div>
-          <div className='flex items-center gap-2'>
+          <div className='flex items-center gap-2 flex-wrap'>
             {getStatusBadge(camera.status)}
             <button
               onClick={handleRefresh}
-              className='px-3 py-2 text-sm font-medium text-[var(--color-text)] border border-[var(--color-border)] rounded-lg hover:bg-gray-50 transition-colors inline-flex items-center gap-2'
+              className='px-3 py-2 text-xs md:text-sm font-medium text-[var(--color-text)] border border-[var(--color-border)] rounded-lg hover:bg-gray-50 transition-colors inline-flex items-center gap-2'
             >
               <RotateCcw className='h-4 w-4' />
-              Refresh
+              <span className='hidden sm:inline'>Refresh</span>
             </button>
             <button
               onClick={handleFullscreen}
-              className='px-3 py-2 text-sm font-medium text-[var(--color-text)] border border-[var(--color-border)] rounded-lg hover:bg-gray-50 transition-colors inline-flex items-center gap-2'
+              className='px-3 py-2 text-xs md:text-sm font-medium text-[var(--color-text)] border border-[var(--color-border)] rounded-lg hover:bg-gray-50 transition-colors inline-flex items-center gap-2'
             >
               <Maximize className='h-4 w-4' />
-              Fullscreen
+              <span className='hidden sm:inline'>Fullscreen</span>
             </button>
           </div>
         </div>
@@ -166,21 +175,21 @@ export default function ViewCCTVPage() {
 
       {/* Video Player */}
       <div className='card p-0 overflow-hidden'>
-        <div className='relative bg-black aspect-video'>
+        <div className='relative bg-black aspect-video w-full'>
           {camera.status !== 'ONLINE' ? (
-            <div className='absolute inset-0 flex flex-col items-center justify-center text-white'>
-              <Camera className='h-16 w-16 mb-4 text-gray-400' />
-              <p className='text-lg font-medium'>
+            <div className='absolute inset-0 flex flex-col items-center justify-center text-white px-4'>
+              <Camera className='h-12 w-12 md:h-16 md:w-16 mb-3 md:mb-4 text-gray-400' />
+              <p className='text-base md:text-lg font-medium'>
                 Camera {camera.status.toLowerCase()}
               </p>
-              <p className='text-sm text-gray-400 mt-2'>
+              <p className='text-xs md:text-sm text-gray-400 mt-2 text-center'>
                 Stream kamera tidak tersedia saat ini
               </p>
             </div>
           ) : !camera.streamUrl ? (
-            <div className='absolute inset-0 flex flex-col items-center justify-center text-white'>
-              <AlertCircle className='h-16 w-16 mb-4 text-yellow-400' />
-              <p className='text-lg font-medium'>
+            <div className='absolute inset-0 flex flex-col items-center justify-center text-white px-4'>
+              <AlertCircle className='h-12 w-12 md:h-16 md:w-16 mb-3 md:mb-4 text-yellow-400' />
+              <p className='text-base md:text-lg font-medium text-center'>
                 URL stream tidak dikonfigurasi
               </p>
             </div>
@@ -189,7 +198,7 @@ export default function ViewCCTVPage() {
               <iframe
                 ref={iframeRef}
                 src={camera.streamUrl}
-                className='w-full h-full'
+                className='w-full h-full absolute inset-0'
                 allow='autoplay; fullscreen; picture-in-picture'
                 allowFullScreen
                 onLoad={() => setIsLoading(false)}
@@ -202,22 +211,24 @@ export default function ViewCCTVPage() {
 
               {isLoading && (
                 <div className='absolute inset-0 flex flex-col items-center justify-center bg-black/50 text-white'>
-                  <Loader2 className='h-8 w-8 animate-spin mb-2' />
-                  <span className='text-sm'>Memuat stream...</span>
+                  <Loader2 className='h-6 w-6 md:h-8 md:w-8 animate-spin mb-2' />
+                  <span className='text-xs md:text-sm'>Memuat stream...</span>
                 </div>
               )}
 
               {hasError && (
-                <div className='absolute inset-0 flex flex-col items-center justify-center bg-black/80 text-white p-8'>
-                  <AlertCircle className='h-16 w-16 mb-4 text-red-400' />
-                  <p className='text-lg font-medium mb-2'>Error Stream</p>
-                  <p className='text-sm text-center text-gray-300 max-w-md'>
+                <div className='absolute inset-0 flex flex-col items-center justify-center bg-black/80 text-white p-4 md:p-8'>
+                  <AlertCircle className='h-12 w-12 md:h-16 md:w-16 mb-3 md:mb-4 text-red-400' />
+                  <p className='text-base md:text-lg font-medium mb-2'>
+                    Error Stream
+                  </p>
+                  <p className='text-xs md:text-sm text-center text-gray-300 max-w-md'>
                     {errorMessage ||
                       'Tidak dapat memuat stream kamera. Silakan periksa URL stream dan coba lagi.'}
                   </p>
                   <button
                     onClick={handleRefresh}
-                    className='mt-4 px-4 py-2 text-sm font-medium text-white border border-white/30 rounded-lg hover:bg-white/10 transition-colors inline-flex items-center gap-2'
+                    className='mt-4 px-4 py-2 text-xs md:text-sm font-medium text-white border border-white/30 rounded-lg hover:bg-white/10 transition-colors inline-flex items-center gap-2'
                   >
                     <RotateCcw className='h-4 w-4' />
                     Coba Lagi
@@ -231,40 +242,48 @@ export default function ViewCCTVPage() {
 
       {/* Camera Info */}
       <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
-        <div className='card p-5'>
-          <h2 className='text-base font-semibold text-[var(--color-text)] mb-4'>
+        <div className='card p-4 md:p-5'>
+          <h2 className='text-sm md:text-base font-semibold text-[var(--color-text)] mb-3 md:mb-4'>
             Informasi Kamera
           </h2>
           <div className='space-y-3'>
             <div>
-              <p className='text-sm text-[var(--color-muted)]'>Deskripsi</p>
-              <p className='font-medium text-[var(--color-text)]'>
+              <p className='text-xs md:text-sm text-[var(--color-muted)]'>
+                Deskripsi
+              </p>
+              <p className='text-sm md:text-base font-medium text-[var(--color-text)] mt-1'>
                 {camera.description || 'Tidak ada deskripsi'}
               </p>
             </div>
             <div>
-              <p className='text-sm text-[var(--color-muted)]'>Project</p>
-              <p className='font-medium text-[var(--color-text)]'>
+              <p className='text-xs md:text-sm text-[var(--color-muted)]'>
+                Project
+              </p>
+              <p className='text-sm md:text-base font-medium text-[var(--color-text)] mt-1'>
                 {camera.project?.name || 'Unassigned'}
               </p>
             </div>
           </div>
         </div>
 
-        <div className='card p-5'>
-          <h2 className='text-base font-semibold text-[var(--color-text)] mb-4'>
+        <div className='card p-4 md:p-5'>
+          <h2 className='text-sm md:text-base font-semibold text-[var(--color-text)] mb-3 md:mb-4'>
             Detail Stream
           </h2>
           <div className='space-y-3'>
             <div>
-              <p className='text-sm text-[var(--color-muted)]'>Stream URL</p>
-              <p className='font-medium text-xs break-all text-[var(--color-text)]'>
+              <p className='text-xs md:text-sm text-[var(--color-muted)]'>
+                Stream URL
+              </p>
+              <p className='text-xs font-medium break-all text-[var(--color-text)] mt-1'>
                 {camera.streamUrl || 'Tidak dikonfigurasi'}
               </p>
             </div>
             <div>
-              <p className='text-sm text-[var(--color-muted)]'>Status</p>
-              <p className='font-medium text-[var(--color-text)]'>
+              <p className='text-xs md:text-sm text-[var(--color-muted)]'>
+                Status
+              </p>
+              <p className='text-sm md:text-base font-medium text-[var(--color-text)] mt-1'>
                 {camera.status}
               </p>
             </div>

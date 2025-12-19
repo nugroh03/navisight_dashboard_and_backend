@@ -91,20 +91,29 @@ export default function EditCCTVPage() {
 
   if (cameraLoading) {
     return (
-      <div className='flex items-center justify-center h-64'>
-        <div className='animate-spin rounded-full h-8 w-8 border-b-2 border-[var(--color-primary-strong)]'></div>
+      <div className='flex items-center justify-center min-h-[50vh] pb-20 md:pb-0'>
+        <div className='text-center'>
+          <div className='animate-spin rounded-full h-8 w-8 border-b-2 border-[var(--color-primary-strong)] mx-auto'></div>
+          <p className='text-sm text-[var(--color-muted)] mt-3'>
+            Memuat kamera...
+          </p>
+        </div>
       </div>
     );
   }
 
   if (!camera) {
     return (
-      <div className='card p-12 text-center'>
-        <p className='text-[var(--color-muted)] mb-4'>Kamera tidak ditemukan</p>
+      <div className='card p-8 md:p-12 text-center mx-4 md:mx-0 mt-4 md:mt-0'>
+        <Camera className='h-12 w-12 md:h-16 md:w-16 mx-auto text-[var(--color-muted)] opacity-50 mb-4' />
+        <p className='text-sm md:text-base text-[var(--color-muted)] mb-4'>
+          Kamera tidak ditemukan
+        </p>
         <button
           onClick={() => router.push('/dashboard/cctv')}
-          className='btn-primary inline-flex items-center gap-2'
+          className='btn-primary inline-flex items-center gap-2 text-sm md:text-base'
         >
+          <ArrowLeft className='h-4 w-4' />
           Kembali ke Daftar CCTV
         </button>
       </div>
@@ -113,26 +122,26 @@ export default function EditCCTVPage() {
 
   return (
     <>
-      <div className='max-w-2xl mx-auto'>
+      <div className='max-w-2xl mx-auto pb-20 md:pb-0'>
         <div className='card p-0 overflow-hidden'>
           {/* Header */}
-          <div className='bg-white p-6 border-b border-[var(--color-border)]'>
-            <div className='flex items-center gap-4'>
-              <Link
-                href='/dashboard/cctv'
-                className='w-10 h-10 flex items-center justify-center rounded-lg hover:bg-gray-100 transition-colors'
-              >
-                <ArrowLeft className='h-5 w-5 text-[var(--color-text)]' />
-              </Link>
-              <div className='flex items-center gap-3 flex-1'>
-                <div className='w-12 h-12 bg-[var(--color-primary)]/10 rounded-xl flex items-center justify-center'>
-                  <Camera className='h-6 w-6 text-[var(--color-primary-strong)]' />
+          <div className='bg-white p-4 md:p-6 border-b border-[var(--color-border)]'>
+            <div className='flex flex-col md:flex-row md:items-center gap-4'>
+              <div className='flex items-center gap-3 md:gap-4 flex-1 min-w-0'>
+                <Link
+                  href='/dashboard/cctv'
+                  className='w-10 h-10 flex items-center justify-center rounded-lg hover:bg-gray-100 transition-colors shrink-0'
+                >
+                  <ArrowLeft className='h-5 w-5 text-[var(--color-text)]' />
+                </Link>
+                <div className='w-10 h-10 md:w-12 md:h-12 bg-[var(--color-primary)]/10 rounded-xl flex items-center justify-center shrink-0'>
+                  <Camera className='h-5 w-5 md:h-6 md:w-6 text-[var(--color-primary-strong)]' />
                 </div>
-                <div>
-                  <h1 className='text-xl font-semibold text-[var(--color-text)]'>
+                <div className='min-w-0'>
+                  <h1 className='text-base md:text-xl font-semibold text-[var(--color-text)] truncate'>
                     Edit Kamera
                   </h1>
-                  <p className='text-sm text-[var(--color-muted)] mt-0.5'>
+                  <p className='text-xs md:text-sm text-[var(--color-muted)] mt-0.5 truncate'>
                     Perbarui detail dan pengaturan kamera
                   </p>
                 </div>
@@ -140,7 +149,7 @@ export default function EditCCTVPage() {
               {userRole === RoleName.ADMINISTRATOR && (
                 <button
                   onClick={() => setShowDeleteModal(true)}
-                  className='px-4 py-2 text-sm font-medium text-red-600 border border-[var(--color-border)] rounded-lg hover:bg-red-50 transition-colors inline-flex items-center gap-2'
+                  className='w-full md:w-auto px-4 py-2 text-sm font-medium text-red-600 border border-[var(--color-border)] rounded-lg hover:bg-red-50 transition-colors inline-flex items-center justify-center gap-2'
                 >
                   <Trash2 className='h-4 w-4' />
                   Hapus
@@ -150,8 +159,11 @@ export default function EditCCTVPage() {
           </div>
 
           {/* Form */}
-          <div className='p-6'>
-            <form onSubmit={handleSubmit(onSubmit)} className='space-y-6'>
+          <div className='p-4 md:p-6'>
+            <form
+              onSubmit={handleSubmit(onSubmit)}
+              className='space-y-4 md:space-y-6'
+            >
               <div className='space-y-2'>
                 <label
                   htmlFor='name'
@@ -164,12 +176,14 @@ export default function EditCCTVPage() {
                   {...register('name')}
                   placeholder='Masukkan nama kamera'
                   disabled={isSubmitting}
-                  className={`input-field w-full ${
+                  className={`input-field w-full text-sm md:text-base ${
                     errors.name ? 'border-red-500' : ''
                   }`}
                 />
                 {errors.name && (
-                  <p className='text-sm text-red-600'>{errors.name.message}</p>
+                  <p className='text-xs md:text-sm text-red-600'>
+                    {errors.name.message}
+                  </p>
                 )}
               </div>
 
@@ -185,10 +199,10 @@ export default function EditCCTVPage() {
                   {...register('description')}
                   placeholder='Masukkan deskripsi kamera (opsional)'
                   disabled={isSubmitting}
-                  className='w-full px-3 py-2.5 border border-[var(--color-border)] bg-white text-[var(--color-text)] rounded-[var(--radius-md)] text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-strong)] focus:border-transparent min-h-[80px] resize-y'
+                  className='w-full px-3 py-2.5 border border-[var(--color-border)] bg-white text-[var(--color-text)] rounded-[var(--radius-md)] text-sm md:text-base focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-strong)] focus:border-transparent min-h-[80px] resize-y'
                 />
                 {errors.description && (
-                  <p className='text-sm text-red-600'>
+                  <p className='text-xs md:text-sm text-red-600'>
                     {errors.description.message}
                   </p>
                 )}
