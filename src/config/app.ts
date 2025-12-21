@@ -4,5 +4,5 @@
  */
 
 export const APP_CONFIG = {
-  name: process.env.NEXT_PUBLIC_APP_NAME || 'NAVISIGHT',
+  name: 'Trans Laut Jatim',
 } as const;
