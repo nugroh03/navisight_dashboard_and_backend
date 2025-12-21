@@ -2,7 +2,8 @@ import { authOptions } from "@/auth/config";
 import { prisma } from "@/lib/prisma";
 import { hash } from "bcryptjs";
 import { getServerSession } from "next-auth";
-import { NextResponse } from "next/server";
+import type { Session } from "next-auth";
+import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
 const allowedRoles = ["CLIENT", "WORKER"] as const;
@@ -15,11 +16,11 @@ const createUserSchema = z.object({
   projectIds: z.array(z.string().uuid()).optional(),
 });
 
-function isAdmin(session: Awaited<ReturnType<typeof getServerSession>>) {
+function isAdmin(session: Session | null) {
   return session?.user?.role === "ADMINISTRATOR";
 }
 
-export async function GET() {
+export async function GET(_request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.email) {
@@ -32,7 +33,7 @@ export async function GET() {
     const users = await prisma.user.findMany({
       where: {
         deletedAt: null,
-        role: { name: { in: allowedRoles } },
+        role: { name: { in: [...allowedRoles] } },
       },
       include: {
         role: { select: { name: true } },
@@ -59,7 +60,7 @@ export async function GET() {
   }
 }
 
-export async function POST(req: Request) {
+export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.email) {
@@ -69,7 +70,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ message: "Forbidden" }, { status: 403 });
     }
 
-    const body = await req.json();
+    const body = await request.json();
     const parsed = createUserSchema.safeParse(body);
     if (!parsed.success) {
       return NextResponse.json(

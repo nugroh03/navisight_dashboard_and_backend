@@ -1,7 +1,7 @@
 import { authOptions } from "@/auth/config";
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
-import { NextResponse } from "next-auth/server";
+import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
 const updateRoleSchema = z.object({
@@ -10,10 +10,11 @@ const updateRoleSchema = z.object({
 
 // Update member role
 export async function PATCH(
-  req: Request,
-  { params }: { params: { id: string; memberId: string } }
+  request: NextRequest,
+  context: { params: Promise<{ id: string; memberId: string }> }
 ) {
   try {
+    const { id: projectId, memberId } = await context.params;
     const session = await getServerSession(authOptions);
     if (!session?.user?.email) {
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
@@ -33,7 +34,7 @@ export async function PATCH(
 
       // System administrators can modify any project
       if (user.role?.name === "ADMINISTRATOR") {
-        const body = await req.json();
+        const body = await request.json();
         const parsed = updateRoleSchema.safeParse(body);
 
         if (!parsed.success) {
@@ -45,8 +46,8 @@ export async function PATCH(
         const projectUser = await prisma.projectUser.update({
           where: {
             projectId_userId: {
-              projectId: params.id,
-              userId: params.memberId
+              projectId,
+              userId: memberId
             }
           },
           data: {
@@ -74,7 +75,7 @@ export async function PATCH(
     const currentUserMembership = await prisma.projectUser.findUnique({
       where: {
         projectId_userId: {
-          projectId: params.id,
+          projectId,
           userId: currentUserId
         }
       }
@@ -84,7 +85,7 @@ export async function PATCH(
       return NextResponse.json({ message: "Forbidden" }, { status: 403 });
     }
 
-    const body = await req.json();
+    const body = await request.json();
     const parsed = updateRoleSchema.safeParse(body);
 
     if (!parsed.success) {
@@ -94,7 +95,7 @@ export async function PATCH(
     }
 
     // Prevent admin from removing their own admin role
-    if (params.memberId === currentUserId && parsed.data.role !== "ADMIN") {
+    if (memberId === currentUserId && parsed.data.role !== "ADMIN") {
       return NextResponse.json({
         message: "You cannot remove your own admin role"
       }, { status: 400 });
@@ -103,8 +104,8 @@ export async function PATCH(
     const projectUser = await prisma.projectUser.update({
       where: {
         projectId_userId: {
-          projectId: params.id,
-          userId: params.memberId
+          projectId,
+          userId: memberId
         }
       },
       data: {
@@ -134,10 +135,11 @@ export async function PATCH(
 
 // Remove member from project
 export async function DELETE(
-  req: Request,
-  { params }: { params: { id: string; memberId: string } }
+  _request: NextRequest,
+  context: { params: Promise<{ id: string; memberId: string }> }
 ) {
   try {
+    const { id: projectId, memberId } = await context.params;
     const session = await getServerSession(authOptions);
     if (!session?.user?.email) {
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
@@ -160,8 +162,8 @@ export async function DELETE(
         await prisma.projectUser.delete({
           where: {
             projectId_userId: {
-              projectId: params.id,
-              userId: params.memberId
+              projectId,
+              userId: memberId
             }
           }
         });
@@ -176,7 +178,7 @@ export async function DELETE(
     const currentUserMembership = await prisma.projectUser.findUnique({
       where: {
         projectId_userId: {
-          projectId: params.id,
+          projectId,
           userId: currentUserId
         }
       }
@@ -187,7 +189,7 @@ export async function DELETE(
     }
 
     // Prevent admin from removing themselves
-    if (params.memberId === currentUserId) {
+    if (memberId === currentUserId) {
       return NextResponse.json({
         message: "You cannot remove yourself from the project"
       }, { status: 400 });
@@ -196,8 +198,8 @@ export async function DELETE(
     await prisma.projectUser.delete({
       where: {
         projectId_userId: {
-          projectId: params.id,
-          userId: params.memberId
+          projectId,
+          userId: memberId
         }
       }
     });

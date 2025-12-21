@@ -118,7 +118,7 @@ export default function DashboardPage() {
                     </p>
                   )}
                   <Link
-                    href={`/dashboard/cctv/${camera.id}/view`}
+                    href={`/dashboard/cctv/${camera.id}/view?from=dashboard`}
                     className='mt-3 inline-block text-sm font-medium text-[var(--color-primary)] hover:text-[var(--color-primary-strong)]'
                   >
                     Lihat Fullscreen →

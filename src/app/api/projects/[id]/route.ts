@@ -1,7 +1,7 @@
 import { authOptions } from "@/auth/config";
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
 const projectUpdateSchema = z.object({
@@ -9,10 +9,11 @@ const projectUpdateSchema = z.object({
 });
 
 export async function GET(
-  req: Request,
-  { params }: { params: { id: string } }
+  _request: NextRequest,
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id: projectId } = await context.params;
     const session = await getServerSession(authOptions);
     if (!session?.user?.email) {
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
@@ -32,7 +33,7 @@ export async function GET(
 
     const project = await prisma.project.findFirst({
       where: {
-        id: params.id,
+        id: projectId,
         deletedAt: null,
         projectUsers: {
           some: {
@@ -54,10 +55,11 @@ export async function GET(
 }
 
 export async function PUT(
-  req: Request,
-  { params }: { params: { id: string } }
+  request: NextRequest,
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id: projectId } = await context.params;
     const session = await getServerSession(authOptions);
     if (!session?.user?.email) {
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
@@ -75,7 +77,7 @@ export async function PUT(
       userId = user.id;
     }
 
-    const body = await req.json();
+    const body = await request.json();
     const parsed = projectUpdateSchema.safeParse(body);
 
     if (!parsed.success) {
@@ -86,7 +88,7 @@ export async function PUT(
 
     const project = await prisma.project.updateMany({
       where: {
-        id: params.id,
+        id: projectId,
         deletedAt: null,
         projectUsers: {
           some: {
@@ -105,7 +107,7 @@ export async function PUT(
 
     const updatedProject = await prisma.project.findFirst({
       where: {
-        id: params.id,
+        id: projectId,
         deletedAt: null
       }
     });
@@ -118,10 +120,11 @@ export async function PUT(
 }
 
 export async function DELETE(
-  req: Request,
-  { params }: { params: { id: string } }
+  _request: NextRequest,
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id: projectId } = await context.params;
     const session = await getServerSession(authOptions);
     if (!session?.user?.email) {
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
@@ -141,7 +144,7 @@ export async function DELETE(
 
     const project = await prisma.project.updateMany({
       where: {
-        id: params.id,
+        id: projectId,
         deletedAt: null,
         projectUsers: {
           some: {

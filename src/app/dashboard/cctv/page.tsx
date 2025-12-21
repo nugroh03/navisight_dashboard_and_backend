@@ -319,7 +319,7 @@ export default function CCTVPage() {
                   {/* Actions */}
                   <div className='flex gap-2 pt-4 border-t border-[var(--color-border)]'>
                     <Link
-                      href={`/dashboard/cctv/${camera.id}/view`}
+                      href={`/dashboard/cctv/${camera.id}/view?from=cctv`}
                       className='flex-1 px-3 py-2 text-sm font-medium text-[var(--color-primary-strong)] border border-[var(--color-border)] rounded-lg hover:bg-gray-50 transition-colors flex items-center justify-center gap-2'
                     >
                       <Eye className='w-4 h-4' />

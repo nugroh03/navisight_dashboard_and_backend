@@ -25,7 +25,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
 
       <div className='mx-auto flex w-full max-w-none gap-8 px-0 py-0 lg:px-0'>
         {/* Desktop Sidebar - Hidden on mobile */}
-        <aside className='hidden md:flex h-screen w-72 shrink-0 flex-col justify-between border-r border-[var(--color-border)] bg-white/95 px-5 py-8 shadow-xl backdrop-blur'>
+        <aside className='hidden md:flex md:sticky md:top-0 h-screen w-72 shrink-0 flex-col justify-between border-r border-[var(--color-border)] bg-white/95 px-5 py-8 shadow-xl backdrop-blur overflow-y-auto'>
           <div className='space-y-2'>
             <h1 className='text-xl font-bold text-[var(--color-primary-strong)] break-words'>
               {APP_CONFIG.name}
@@ -59,7 +59,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
         </aside>
 
         {/* Main Content */}
-        <main className='flex-1 px-4 py-6 pb-24 md:px-6 md:py-10 md:pb-10 lg:px-10'>
+        <main className='flex-1 px-4 py-6 pb-24 md:px-6 md:py-10 md:pb-10 lg:px-10 min-h-screen'>
           {children}
         </main>
       </div>

@@ -18,7 +18,7 @@ import {
 import { useCreateCCTV } from '@/hooks/use-cctv';
 import { useProjects } from '@/hooks/use-projects';
 import { createCCTVSchema, CreateCCTVInput } from '@/lib/validations';
-import { Project } from '@prisma/client';
+import type { ProjectOption } from '@/types';
 import { toast } from 'sonner';
 import Link from 'next/link';
 
@@ -159,7 +159,7 @@ export function CCTVCreateForm() {
                 disabled={isSubmitting || projectsLoading}
               >
                 <option value=''>Select a project</option>
-                {projects?.map((project: Project) => (
+                {projects?.map((project: ProjectOption) => (
                   <option key={project.id} value={project.id}>
                     {project.name}
                   </option>

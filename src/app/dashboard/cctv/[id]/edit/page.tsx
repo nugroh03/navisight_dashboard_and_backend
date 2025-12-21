@@ -35,16 +35,9 @@ export default function EditCCTVPage() {
     handleSubmit,
     formState: { errors },
     reset,
+    watch,
   } = useForm<UpdateCCTVInput>({
     resolver: zodResolver(updateCCTVSchema),
-    defaultValues: {
-      name: camera?.name || '',
-      description: camera?.description || '',
-      location: camera?.location || '',
-      projectId: camera?.projectId || '',
-      streamUrl: camera?.streamUrl || '',
-      status: camera?.status || 'OFFLINE',
-    },
   });
 
   useEffect(() => {

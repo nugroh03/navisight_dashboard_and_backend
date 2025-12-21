@@ -1,12 +1,12 @@
 'use client';
 
 import { useState } from 'react';
-import { Plus, Search, Camera, Wifi, WifiOff, Settings } from 'lucide-react';
+import { Plus, Search, Camera, Wifi, WifiOff, Settings, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import { useCCTV } from '@/hooks/use-cctv';
-import { Role } from '@prisma/client';
+import { RoleName } from '@prisma/client';
 import type { CCTV } from '@/types';
 import { CCTVListProps } from '@/types';
 import Link from 'next/link';
@@ -94,7 +94,7 @@ export function CCTVList({ user }: CCTVListProps) {
             {/* TODO: Load projects dynamically */}
           </select>
 
-          {user.role === Role.ADMIN && (
+          {user.role === RoleName.ADMINISTRATOR && (
             <Link href='/cctv/add'>
               <Button>
                 <Plus className='mr-2 h-4 w-4' />
@@ -117,7 +117,7 @@ export function CCTVList({ user }: CCTVListProps) {
               ? 'No cameras match your search criteria.'
               : 'Get started by adding your first camera.'}
           </p>
-          {user.role === Role.ADMIN &&
+          {user.role === RoleName.ADMINISTRATOR &&
             !searchTerm &&
             statusFilter === 'ALL' &&
             projectFilter === 'ALL' && (

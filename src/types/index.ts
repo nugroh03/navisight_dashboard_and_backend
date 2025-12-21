@@ -21,6 +21,7 @@ export interface CCTV {
   project?: Project;
   createdAt: Date;
   updatedAt: Date;
+  lastActivity?: Date | string | null;
 }
 
 // Props types

@@ -20,11 +20,12 @@ import { useCCTVCamera, useUpdateCCTV } from '@/hooks/use-cctv';
 import { useProjects } from '@/hooks/use-projects';
 import { updateCCTVSchema, UpdateCCTVInput } from '@/lib/validations';
 import { toast } from 'sonner';
-import { Role, Project } from '@prisma/client';
+import { RoleName } from '@prisma/client';
 import Link from 'next/link';
 import { CCTVDeleteModal } from './cctv-delete-modal';
 
 import { CCTV, User } from '@/types';
+import type { ProjectOption } from '@/types';
 
 interface CCTVEditFormProps {
   user: User;
@@ -153,7 +154,7 @@ export function CCTVEditForm({ user, cameraId }: CCTVEditFormProps) {
                   </CardDescription>
                 </div>
               </div>
-              {user.role === Role.ADMIN && (
+              {user.role === RoleName.ADMINISTRATOR && (
                 <Button
                   variant='outline'
                   size='sm'
@@ -232,7 +233,7 @@ export function CCTVEditForm({ user, cameraId }: CCTVEditFormProps) {
                   disabled={isSubmitting || projectsLoading}
                 >
                   <option value=''>Select a project</option>
-                  {projects?.map((project: Project) => (
+                  {projects?.map((project: ProjectOption) => (
                     <option key={project.id} value={project.id}>
                       {project.name}
                     </option>

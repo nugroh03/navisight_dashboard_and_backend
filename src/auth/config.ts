@@ -35,7 +35,11 @@ export const authOptions: NextAuthOptions = {
         if (!user?.passwordHash) return null;
         const match = await compare(password, user.passwordHash);
         if (!match) return null;
-        return user;
+        const { passwordHash, role, ...userData } = user;
+        return {
+          ...userData,
+          role: role ?? undefined,
+        };
       },
     }),
   ],

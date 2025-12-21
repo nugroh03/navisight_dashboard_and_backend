@@ -24,11 +24,11 @@ import {
   Loader2,
 } from 'lucide-react';
 import type { CCTV } from '@/types';
-import { Role } from '@prisma/client';
+import { RoleName } from '@prisma/client';
 
 interface CCTVCardProps {
   camera: CCTV;
-  userRole?: Role;
+  userRole?: RoleName;
   onDeleteRequest?: (camera: CCTV) => void;
   showActions?: boolean;
   variant?: 'default' | 'compact';
@@ -180,7 +180,7 @@ export function CCTVCard({
                   </Button>
                 </Link>
               )}
-              {userRole === Role.ADMIN && (
+              {userRole === RoleName.ADMINISTRATOR && (
                 <>
                   <Link href={`/cctv/${camera.id}/edit`}>
                     <Button

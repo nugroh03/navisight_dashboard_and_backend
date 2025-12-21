@@ -1,7 +1,7 @@
 import { authOptions } from "@/auth/config";
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
 const addMemberSchema = z.object({
@@ -10,10 +10,11 @@ const addMemberSchema = z.object({
 });
 
 export async function POST(
-  req: Request,
-  { params }: { params: { id: string } }
+  request: NextRequest,
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id: projectId } = await context.params;
     const session = await getServerSession(authOptions);
     if (!session?.user?.email) {
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
@@ -37,8 +38,7 @@ export async function POST(
       }
     }
 
-    const projectId = params.id;
-    const body = await req.json();
+    const body = await request.json();
     const parsed = addMemberSchema.safeParse(body);
 
     if (!parsed.success) {
@@ -113,10 +113,11 @@ export async function POST(
 
 // Get all members of a project
 export async function GET(
-  req: Request,
-  { params }: { params: { id: string } }
+  _request: NextRequest,
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id: projectId } = await context.params;
     const session = await getServerSession(authOptions);
     if (!session?.user?.email) {
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
@@ -135,13 +136,11 @@ export async function GET(
       currentUserId = user.id;
     }
 
-    const projectId = params.id;
-
     // Check if user is a member of the project
     const currentUserMembership = await prisma.projectUser.findUnique({
       where: {
         projectId_userId: {
-          projectId: projectId,
+          projectId,
           userId: currentUserId
         }
       }
@@ -154,7 +153,7 @@ export async function GET(
     // Get all members of the project
     const members = await prisma.projectUser.findMany({
       where: {
-        projectId: projectId
+        projectId
       },
       include: {
         user: {

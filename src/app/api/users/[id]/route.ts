@@ -2,7 +2,8 @@ import { authOptions } from "@/auth/config";
 import { prisma } from "@/lib/prisma";
 import { hash } from "bcryptjs";
 import { getServerSession } from "next-auth";
-import { NextResponse } from "next/server";
+import type { Session } from "next-auth";
+import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
 const allowedRoles = ["CLIENT", "WORKER"] as const;
@@ -16,15 +17,16 @@ const updateUserSchema = z.object({
   projectIds: z.array(z.string().uuid()).optional(),
 });
 
-function isAdmin(session: Awaited<ReturnType<typeof getServerSession>>) {
+function isAdmin(session: Session | null) {
   return session?.user?.role === "ADMINISTRATOR";
 }
 
 export async function PUT(
-  req: Request,
-  { params }: { params: { id: string } }
+  request: NextRequest,
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id: routeParamId } = await context.params;
     const session = await getServerSession(authOptions);
     if (!session?.user?.email) {
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
@@ -33,7 +35,7 @@ export async function PUT(
       return NextResponse.json({ message: "Forbidden" }, { status: 403 });
     }
 
-    const body = await req.json();
+    const body = await request.json();
     const parsed = updateUserSchema.safeParse(body);
     if (!parsed.success) {
       return NextResponse.json(
@@ -43,8 +45,8 @@ export async function PUT(
     }
 
     const normalizedParamId =
-      params?.id && params.id !== "undefined" && params.id !== "null"
-        ? params.id
+      routeParamId && routeParamId !== "undefined" && routeParamId !== "null"
+        ? routeParamId
         : undefined;
     const userId = normalizedParamId ?? parsed.data.id;
     if (!userId) {
@@ -173,10 +175,11 @@ export async function PUT(
 }
 
 export async function DELETE(
-  req: Request,
-  { params }: { params: { id: string } }
+  _request: NextRequest,
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id: routeParamId } = await context.params;
     const session = await getServerSession(authOptions);
     if (!session?.user?.email) {
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
@@ -185,7 +188,7 @@ export async function DELETE(
       return NextResponse.json({ message: "Forbidden" }, { status: 403 });
     }
 
-    const userId = params?.id;
+    const userId = routeParamId;
     if (!userId) {
       return NextResponse.json({ message: "User id is required." }, { status: 400 });
     }
@@ -194,7 +197,7 @@ export async function DELETE(
       where: {
         id: userId,
         deletedAt: null,
-        role: { name: { in: allowedRoles } },
+        role: { name: { in: [...allowedRoles] } },
       },
       select: { id: true },
     });

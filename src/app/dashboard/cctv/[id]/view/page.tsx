@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef } from 'react';
-import { useRouter, useParams } from 'next/navigation';
+import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import {
   ArrowLeft,
   Maximize,
@@ -19,7 +19,10 @@ import Link from 'next/link';
 export default function ViewCCTVPage() {
   const router = useRouter();
   const params = useParams();
+  const searchParams = useSearchParams();
   const cameraId = params?.id as string;
+  const from = searchParams.get('from') || 'cctv';
+  const backUrl = from === 'dashboard' ? '/dashboard' : '/dashboard/cctv';
   const videoRef = useRef<HTMLVideoElement>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -68,11 +71,11 @@ export default function ViewCCTVPage() {
           Kamera tidak ditemukan
         </p>
         <button
-          onClick={() => router.push('/dashboard/cctv')}
+          onClick={() => router.push(backUrl)}
           className='btn-primary inline-flex items-center gap-2 text-sm md:text-base'
         >
           <ArrowLeft className='h-4 w-4' />
-          Kembali ke Daftar CCTV
+          Kembali
         </button>
       </div>
     );
@@ -134,7 +137,7 @@ export default function ViewCCTVPage() {
         <div className='flex flex-col gap-4 md:flex-row md:items-center md:justify-between'>
           <div className='flex items-center gap-3 md:gap-4'>
             <Link
-              href='/dashboard/cctv'
+              href={backUrl}
               className='w-10 h-10 flex items-center justify-center rounded-lg hover:bg-gray-100 transition-colors flex-shrink-0'
             >
               <ArrowLeft className='h-5 w-5 text-[var(--color-text)]' />

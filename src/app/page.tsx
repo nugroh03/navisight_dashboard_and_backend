@@ -51,8 +51,8 @@ export default function Home() {
       <div className='absolute -left-24 top-[-15%] h-80 w-80 rounded-full bg-[var(--color-primary-strong)]/18 blur-3xl' />
       <div className='absolute right-[-10%] bottom-[-10%] h-[28rem] w-[28rem] rounded-full bg-[var(--color-accent)]/18 blur-3xl' />
 
-      <div className='relative mx-auto flex min-h-screen max-w-6xl items-center px-6 py-12 lg:px-12'>
-        <div className='grid w-full items-center gap-12 lg:grid-cols-[1.15fr_1fr]'>
+      <div className='relative mx-auto flex min-h-screen max-w-6xl items-center justify-center px-6 py-12 lg:px-12'>
+        <div className='w-full max-w-md'>
           {/* <section className='space-y-8'>
             <div className='space-y-4'>
               <h1 className='text-4xl font-semibold leading-tight text-[var(--color-text)] lg:text-5xl'>
@@ -109,7 +109,7 @@ export default function Home() {
                     type='email'
                     required
                     className='input-field'
-                    placeholder='admin@navisight.test'
+                    placeholder='usertest@gmail.com'
                     value={email}
                     onChange={(event) => setEmail(event.target.value)}
                   />
