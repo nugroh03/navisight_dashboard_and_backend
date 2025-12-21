@@ -2,11 +2,12 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import type { CCTV } from '@/types';
 
 // Fetch all CCTV cameras
-export function useCCTV() {
+export function useCCTV(projectId?: string) {
   return useQuery({
-    queryKey: ['cctv'],
+    queryKey: ['cctv', projectId],
     queryFn: async () => {
-      const response = await fetch('/api/cctv');
+      const url = projectId ? `/api/cctv?projectId=${projectId}` : '/api/cctv';
+      const response = await fetch(url);
       if (!response.ok) {
         throw new Error('Failed to fetch CCTV cameras');
       }

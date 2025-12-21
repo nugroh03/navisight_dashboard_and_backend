@@ -11,8 +11,12 @@ import {
   Eye,
   Edit,
   Trash2,
+  FolderKanban,
+  ChevronDown,
+  Filter,
 } from 'lucide-react';
 import { useCCTV } from '@/hooks/use-cctv';
+import { useProjects } from '@/hooks/use-projects';
 import { RoleName } from '@prisma/client';
 import type { CCTV } from '@/types';
 import Link from 'next/link';
@@ -23,10 +27,19 @@ export default function CCTVPage() {
   const { data: session } = useSession();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
+  const [projectFilter, setProjectFilter] = useState<string>('ALL');
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [selectedCamera, setSelectedCamera] = useState<CCTV | null>(null);
 
-  const { data: cameras, isLoading, error } = useCCTV();
+  // Fetch projects for filter dropdown
+  const { data: projects } = useProjects();
+
+  // Fetch CCTVs filtered by selected project
+  const {
+    data: cameras,
+    isLoading,
+    error,
+  } = useCCTV(projectFilter !== 'ALL' ? projectFilter : undefined);
 
   const user = {
     id: session?.user?.id || '',
@@ -95,17 +108,52 @@ export default function CCTVPage() {
             </div>
           </div>
 
-          <div className='flex gap-3 w-full sm:w-auto'>
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className='px-4 py-2.5 border border-[var(--color-border)] bg-white text-[var(--color-text)] rounded-[var(--radius-md)] text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-strong)]'
-            >
-              <option value='ALL'>Semua Status</option>
-              <option value='ONLINE'>Online</option>
-              <option value='OFFLINE'>Offline</option>
-              <option value='MAINTENANCE'>Maintenance</option>
-            </select>
+          <div className='flex gap-3 w-full sm:w-auto flex-wrap sm:flex-nowrap'>
+            {/* Project Filter Dropdown */}
+            <div className='relative flex-1 sm:flex-none sm:min-w-[180px]'>
+              <div className='absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none'>
+                <FolderKanban className='h-4 w-4 text-[var(--color-primary)]' />
+              </div>
+              <select
+                value={projectFilter}
+                onChange={(e) => setProjectFilter(e.target.value)}
+                className='w-full appearance-none pl-10 pr-9 py-2.5 border border-[var(--color-border)] bg-white text-[var(--color-text)] rounded-lg text-sm font-medium 
+                  hover:border-[var(--color-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-strong)] focus:border-transparent
+                  transition-colors duration-200 cursor-pointer'
+              >
+                <option value='ALL'>Semua Project</option>
+                {projects?.map((project) => (
+                  <option key={project.id} value={project.id}>
+                    {project.name}
+                  </option>
+                ))}
+              </select>
+              <div className='absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none'>
+                <ChevronDown className='h-4 w-4 text-[var(--color-muted)]' />
+              </div>
+            </div>
+
+            {/* Status Filter Dropdown */}
+            <div className='relative flex-1 sm:flex-none sm:min-w-[180px]'>
+              <div className='absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none'>
+                <Filter className='h-4 w-4 text-[var(--color-primary)]' />
+              </div>
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className='w-full appearance-none pl-10 pr-9 py-2.5 border border-[var(--color-border)] bg-white text-[var(--color-text)] rounded-lg text-sm font-medium 
+                  hover:border-[var(--color-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-strong)] focus:border-transparent
+                  transition-colors duration-200 cursor-pointer'
+              >
+                <option value='ALL'>Semua Status</option>
+                <option value='ONLINE'>Online</option>
+                <option value='OFFLINE'>Offline</option>
+                <option value='MAINTENANCE'>Maintenance</option>
+              </select>
+              <div className='absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none'>
+                <ChevronDown className='h-4 w-4 text-[var(--color-muted)]' />
+              </div>
+            </div>
 
             {user.role === RoleName.ADMINISTRATOR && (
               <Link

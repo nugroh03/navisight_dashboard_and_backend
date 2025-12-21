@@ -6,7 +6,7 @@ import { createCCTVSchema } from '@/lib/validations';
 import { z } from 'zod';
 
 // GET /api/cctv - Get all CCTV cameras
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
 
@@ -14,7 +14,68 @@ export async function GET() {
       return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
     }
 
+    // Get current user with their projects
+    const currentUser = await prisma.user.findUnique({
+      where: { email: session.user.email },
+      include: {
+        role: true,
+        projectUsers: {
+          select: {
+            projectId: true,
+          },
+        },
+      },
+    });
+
+    if (!currentUser) {
+      return NextResponse.json({ message: 'User not found' }, { status: 404 });
+    }
+
+    // Get query parameters
+    const { searchParams } = new URL(request.url);
+    const projectIdFilter = searchParams.get('projectId');
+
+    // Build where clause based on user role
+    const whereClause: any = {};
+
+    // If user is CLIENT or ADMINISTRATOR, only show cameras from their projects
+    if (
+      currentUser.role?.name === 'CLIENT' ||
+      currentUser.role?.name === 'ADMINISTRATOR'
+    ) {
+      const userProjectIds = currentUser.projectUsers.map((pu) => pu.projectId);
+
+      if (userProjectIds.length === 0) {
+        // User has no projects, return empty array
+        return NextResponse.json([]);
+      }
+
+      whereClause.projectId = {
+        in: userProjectIds,
+      };
+
+      // If projectId filter is provided, further filter
+      if (projectIdFilter) {
+        // Check if user has access to this project
+        if (userProjectIds.includes(projectIdFilter)) {
+          whereClause.projectId = projectIdFilter;
+        } else {
+          // User doesn't have access to this project
+          return NextResponse.json(
+            { message: 'Access denied to this project' },
+            { status: 403 }
+          );
+        }
+      }
+    } else if (currentUser.role?.name === 'SUPERADMIN') {
+      // SUPERADMIN can see all cameras
+      if (projectIdFilter) {
+        whereClause.projectId = projectIdFilter;
+      }
+    }
+
     const cameras = await prisma.camera.findMany({
+      where: whereClause,
       include: {
         project: {
           select: {
