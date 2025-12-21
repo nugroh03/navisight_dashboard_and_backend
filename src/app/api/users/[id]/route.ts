@@ -1,12 +1,12 @@
-import { authOptions } from "@/auth/config";
-import { prisma } from "@/lib/prisma";
-import { hash } from "bcryptjs";
-import { getServerSession } from "next-auth";
-import type { Session } from "next-auth";
-import { NextRequest, NextResponse } from "next/server";
-import { z } from "zod";
+import { authOptions } from '@/auth/config';
+import { prisma } from '@/lib/prisma';
+import { hash } from 'bcryptjs';
+import { getServerSession } from 'next-auth';
+import type { Session } from 'next-auth';
+import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 
-const allowedRoles = ["CLIENT", "WORKER"] as const;
+const allowedRoles = ['CLIENT', 'WORKER'] as const;
 
 const updateUserSchema = z.object({
   id: z.string().uuid().optional(),
@@ -18,7 +18,15 @@ const updateUserSchema = z.object({
 });
 
 function isAdmin(session: Session | null) {
-  return session?.user?.role === "ADMINISTRATOR";
+  return session?.user?.role === 'ADMINISTRATOR';
+}
+
+function isClient(session: Session | null) {
+  return session?.user?.role === 'CLIENT';
+}
+
+function isAdminOrClient(session: Session | null) {
+  return isAdmin(session) || isClient(session);
 }
 
 export async function PUT(
@@ -29,10 +37,10 @@ export async function PUT(
     const { id: routeParamId } = await context.params;
     const session = await getServerSession(authOptions);
     if (!session?.user?.email) {
-      return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+      return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
     }
-    if (!isAdmin(session)) {
-      return NextResponse.json({ message: "Forbidden" }, { status: 403 });
+    if (!isAdminOrClient(session)) {
+      return NextResponse.json({ message: 'Forbidden' }, { status: 403 });
     }
 
     const body = await request.json();
@@ -45,12 +53,15 @@ export async function PUT(
     }
 
     const normalizedParamId =
-      routeParamId && routeParamId !== "undefined" && routeParamId !== "null"
+      routeParamId && routeParamId !== 'undefined' && routeParamId !== 'null'
         ? routeParamId
         : undefined;
     const userId = normalizedParamId ?? parsed.data.id;
     if (!userId) {
-      return NextResponse.json({ message: "User id is required." }, { status: 400 });
+      return NextResponse.json(
+        { message: 'User id is required.' },
+        { status: 400 }
+      );
     }
 
     const existingUser = await prisma.user.findFirst({
@@ -62,14 +73,37 @@ export async function PUT(
     });
 
     if (!existingUser) {
-      return NextResponse.json({ message: "User not found" }, { status: 404 });
+      return NextResponse.json({ message: 'User not found' }, { status: 404 });
+    }
+
+    // CLIENT hanya bisa update user dengan role WORKER
+    if (isClient(session) && existingUser.role?.name !== 'WORKER') {
+      return NextResponse.json(
+        { message: 'Client hanya dapat mengelola user dengan role Worker.' },
+        { status: 403 }
+      );
     }
 
     const nextRole = parsed.data.role ?? existingUser.role?.name;
-    if (!nextRole || !allowedRoles.includes(nextRole as (typeof allowedRoles)[number])) {
+    if (
+      !nextRole ||
+      !allowedRoles.includes(nextRole as (typeof allowedRoles)[number])
+    ) {
       return NextResponse.json(
-        { message: "Role tidak valid untuk user ini." },
+        { message: 'Role tidak valid untuk user ini.' },
         { status: 400 }
+      );
+    }
+
+    // CLIENT tidak bisa mengubah role
+    if (
+      isClient(session) &&
+      parsed.data.role &&
+      parsed.data.role !== existingUser.role?.name
+    ) {
+      return NextResponse.json(
+        { message: 'Client tidak dapat mengubah role user.' },
+        { status: 403 }
       );
     }
 
@@ -77,9 +111,9 @@ export async function PUT(
       ? Array.from(new Set(parsed.data.projectIds.filter((id) => id)))
       : existingUser.projectUsers.map((pu) => pu.projectId);
 
-    if (nextRole === "WORKER" && desiredProjectIds.length > 1) {
+    if (nextRole === 'WORKER' && desiredProjectIds.length > 1) {
       return NextResponse.json(
-        { message: "Worker hanya boleh memiliki 1 project." },
+        { message: 'Worker hanya boleh memiliki 1 project.' },
         { status: 400 }
       );
     }
@@ -91,7 +125,7 @@ export async function PUT(
       });
       if (projects.length !== desiredProjectIds.length) {
         return NextResponse.json(
-          { message: "Project tidak valid atau sudah dihapus." },
+          { message: 'Project tidak valid atau sudah dihapus.' },
           { status: 400 }
         );
       }
@@ -99,7 +133,9 @@ export async function PUT(
 
     const updateData: Record<string, any> = {};
     if (parsed.data.name !== undefined) {
-      updateData.name = parsed.data.name.trim() ? parsed.data.name.trim() : null;
+      updateData.name = parsed.data.name.trim()
+        ? parsed.data.name.trim()
+        : null;
     }
     if (parsed.data.email) {
       updateData.email = parsed.data.email;
@@ -114,7 +150,10 @@ export async function PUT(
         select: { id: true },
       });
       if (!roleRecord) {
-        return NextResponse.json({ message: "Role tidak ditemukan." }, { status: 400 });
+        return NextResponse.json(
+          { message: 'Role tidak ditemukan.' },
+          { status: 400 }
+        );
       }
       updateData.roleId = roleRecord.id;
     }
@@ -128,7 +167,9 @@ export async function PUT(
       }
 
       if (parsed.data.projectIds) {
-        const existingProjectIds = existingUser.projectUsers.map((pu) => pu.projectId);
+        const existingProjectIds = existingUser.projectUsers.map(
+          (pu) => pu.projectId
+        );
         const toRemove = existingProjectIds.filter(
           (projectId) => !desiredProjectIds.includes(projectId)
         );
@@ -147,7 +188,7 @@ export async function PUT(
             data: toAdd.map((projectId) => ({
               projectId,
               userId: existingUser.id,
-              role: "MEMBER",
+              role: 'MEMBER',
             })),
             skipDuplicates: true,
           });
@@ -155,22 +196,25 @@ export async function PUT(
       }
     });
 
-    return NextResponse.json({ message: "User updated" });
+    return NextResponse.json({ message: 'User updated' });
   } catch (error: any) {
-    if (error?.code === "P2002") {
+    if (error?.code === 'P2002') {
       return NextResponse.json(
-        { message: "Email sudah digunakan." },
+        { message: 'Email sudah digunakan.' },
         { status: 409 }
       );
     }
-    if (error?.code === "P2003") {
+    if (error?.code === 'P2003') {
       return NextResponse.json(
-        { message: "Project tidak valid atau tidak ditemukan." },
+        { message: 'Project tidak valid atau tidak ditemukan.' },
         { status: 400 }
       );
     }
-    console.error("Error updating user:", error);
-    return NextResponse.json({ message: "Internal server error" }, { status: 500 });
+    console.error('Error updating user:', error);
+    return NextResponse.json(
+      { message: 'Internal server error' },
+      { status: 500 }
+    );
   }
 }
 
@@ -182,15 +226,18 @@ export async function DELETE(
     const { id: routeParamId } = await context.params;
     const session = await getServerSession(authOptions);
     if (!session?.user?.email) {
-      return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+      return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
     }
-    if (!isAdmin(session)) {
-      return NextResponse.json({ message: "Forbidden" }, { status: 403 });
+    if (!isAdminOrClient(session)) {
+      return NextResponse.json({ message: 'Forbidden' }, { status: 403 });
     }
 
     const userId = routeParamId;
     if (!userId) {
-      return NextResponse.json({ message: "User id is required." }, { status: 400 });
+      return NextResponse.json(
+        { message: 'User id is required.' },
+        { status: 400 }
+      );
     }
 
     const user = await prisma.user.findFirst({
@@ -199,11 +246,19 @@ export async function DELETE(
         deletedAt: null,
         role: { name: { in: [...allowedRoles] } },
       },
-      select: { id: true },
+      select: { id: true, role: { select: { name: true } } },
     });
 
     if (!user) {
-      return NextResponse.json({ message: "User not found" }, { status: 404 });
+      return NextResponse.json({ message: 'User not found' }, { status: 404 });
+    }
+
+    // CLIENT hanya bisa delete user dengan role WORKER
+    if (isClient(session) && user.role?.name !== 'WORKER') {
+      return NextResponse.json(
+        { message: 'Client hanya dapat menghapus user dengan role Worker.' },
+        { status: 403 }
+      );
     }
 
     await prisma.user.update({
@@ -211,9 +266,12 @@ export async function DELETE(
       data: { deletedAt: new Date() },
     });
 
-    return NextResponse.json({ message: "User deleted" });
+    return NextResponse.json({ message: 'User deleted' });
   } catch (error) {
-    console.error("Error deleting user:", error);
-    return NextResponse.json({ message: "Internal server error" }, { status: 500 });
+    console.error('Error deleting user:', error);
+    return NextResponse.json(
+      { message: 'Internal server error' },
+      { status: 500 }
+    );
   }
 }

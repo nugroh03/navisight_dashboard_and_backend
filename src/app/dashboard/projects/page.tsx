@@ -197,10 +197,14 @@ export default function ProjectsPage() {
               Access Restricted
             </h3>
             <p className='text-[var(--color-muted)] max-w-md mx-auto'>
-              Only administrators can access the Projects page. Please contact your system administrator if you need access.
+              Only administrators can access the Projects page. Please contact
+              your system administrator if you need access.
             </p>
             <p className='text-sm text-[var(--color-muted)] mt-4'>
-              Your current role: <span className='font-medium'>{session?.user?.role || 'Unknown'}</span>
+              Your current role:{' '}
+              <span className='font-medium'>
+                {session?.user?.role || 'Unknown'}
+              </span>
             </p>
           </div>
         </div>

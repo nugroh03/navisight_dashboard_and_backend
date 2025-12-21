@@ -27,21 +27,11 @@ export async function GET() {
       return NextResponse.json({ message: 'User not found' }, { status: 404 });
     }
 
+    const roleName = currentUser.role?.name as string | undefined;
     let projects;
 
-    // SUPERADMIN can see all projects
-    if (currentUser.role?.name === 'SUPERADMIN') {
-      projects = await prisma.project.findMany({
-        where: { deletedAt: null },
-        select: { id: true, name: true },
-        orderBy: { createdAt: 'desc' },
-      });
-    }
     // ADMINISTRATOR and CLIENT can only see their projects
-    else if (
-      currentUser.role?.name === 'ADMINISTRATOR' ||
-      currentUser.role?.name === 'CLIENT'
-    ) {
+    if (roleName === 'ADMINISTRATOR' || roleName === 'CLIENT') {
       const userProjectIds = currentUser.projectUsers.map((pu) => pu.projectId);
 
       if (userProjectIds.length === 0) {

@@ -1,12 +1,13 @@
-import { authOptions } from "@/auth/config";
-import { prisma } from "@/lib/prisma";
-import { hash } from "bcryptjs";
-import { getServerSession } from "next-auth";
-import type { Session } from "next-auth";
-import { NextRequest, NextResponse } from "next/server";
-import { z } from "zod";
+import { authOptions } from '@/auth/config';
+import { prisma } from '@/lib/prisma';
+import { hash } from 'bcryptjs';
+import { getServerSession } from 'next-auth';
+import type { Session } from 'next-auth';
+import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 
-const allowedRoles = ["CLIENT", "WORKER"] as const;
+const allowedRoles = ['CLIENT', 'WORKER'] as const;
+type AllowedRole = typeof allowedRoles[number];
 
 const createUserSchema = z.object({
   name: z.string().trim().min(2).optional(),
@@ -17,23 +18,37 @@ const createUserSchema = z.object({
 });
 
 function isAdmin(session: Session | null) {
-  return session?.user?.role === "ADMINISTRATOR";
+  return session?.user?.role === 'ADMINISTRATOR';
+}
+
+function isClient(session: Session | null) {
+  return session?.user?.role === 'CLIENT';
+}
+
+function isAdminOrClient(session: Session | null) {
+  return isAdmin(session) || isClient(session);
 }
 
 export async function GET(_request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.email) {
-      return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+      return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
     }
-    if (!isAdmin(session)) {
-      return NextResponse.json({ message: "Forbidden" }, { status: 403 });
+    if (!isAdminOrClient(session)) {
+      return NextResponse.json({ message: 'Forbidden' }, { status: 403 });
     }
+
+    // CLIENT hanya bisa melihat user dengan role WORKER
+    // ADMINISTRATOR bisa melihat semua user (CLIENT & WORKER)
+    const roleFilter: AllowedRole[] = isClient(session)
+      ? (['WORKER'] as AllowedRole[])
+      : [...allowedRoles];
 
     const users = await prisma.user.findMany({
       where: {
         deletedAt: null,
-        role: { name: { in: [...allowedRoles] } },
+        role: { name: { in: roleFilter } },
       },
       include: {
         role: { select: { name: true } },
@@ -42,7 +57,7 @@ export async function GET(_request: NextRequest) {
           include: { project: { select: { id: true, name: true } } },
         },
       },
-      orderBy: { createdAt: "desc" },
+      orderBy: { createdAt: 'desc' },
     });
 
     const payload = users.map((user) => ({
@@ -55,8 +70,11 @@ export async function GET(_request: NextRequest) {
 
     return NextResponse.json(payload);
   } catch (error) {
-    console.error("Error fetching users:", error);
-    return NextResponse.json({ message: "Internal server error" }, { status: 500 });
+    console.error('Error fetching users:', error);
+    return NextResponse.json(
+      { message: 'Internal server error' },
+      { status: 500 }
+    );
   }
 }
 
@@ -64,10 +82,10 @@ export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.email) {
-      return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+      return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
     }
-    if (!isAdmin(session)) {
-      return NextResponse.json({ message: "Forbidden" }, { status: 403 });
+    if (!isAdminOrClient(session)) {
+      return NextResponse.json({ message: 'Forbidden' }, { status: 403 });
     }
 
     const body = await request.json();
@@ -80,13 +98,22 @@ export async function POST(request: NextRequest) {
     }
 
     const { name, email, password, role, projectIds } = parsed.data;
+
+    // CLIENT hanya bisa create user dengan role WORKER
+    if (isClient(session) && role !== 'WORKER') {
+      return NextResponse.json(
+        { message: 'Client hanya dapat membuat user dengan role Worker.' },
+        { status: 403 }
+      );
+    }
+
     const uniqueProjectIds = Array.from(
       new Set((projectIds ?? []).filter((id) => id))
     );
 
-    if (role === "WORKER" && uniqueProjectIds.length > 1) {
+    if (role === 'WORKER' && uniqueProjectIds.length > 1) {
       return NextResponse.json(
-        { message: "Worker hanya boleh memiliki 1 project." },
+        { message: 'Worker hanya boleh memiliki 1 project.' },
         { status: 400 }
       );
     }
@@ -96,7 +123,10 @@ export async function POST(request: NextRequest) {
       select: { id: true },
     });
     if (!roleRecord) {
-      return NextResponse.json({ message: "Role tidak ditemukan." }, { status: 400 });
+      return NextResponse.json(
+        { message: 'Role tidak ditemukan.' },
+        { status: 400 }
+      );
     }
 
     if (uniqueProjectIds.length > 0) {
@@ -106,7 +136,7 @@ export async function POST(request: NextRequest) {
       });
       if (projects.length !== uniqueProjectIds.length) {
         return NextResponse.json(
-          { message: "Project tidak valid atau sudah dihapus." },
+          { message: 'Project tidak valid atau sudah dihapus.' },
           { status: 400 }
         );
       }
@@ -129,7 +159,7 @@ export async function POST(request: NextRequest) {
           data: uniqueProjectIds.map((projectId) => ({
             projectId,
             userId: user.id,
-            role: "MEMBER",
+            role: 'MEMBER',
           })),
           skipDuplicates: true,
         });
@@ -140,19 +170,22 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ id: result.id }, { status: 201 });
   } catch (error: any) {
-    if (error?.code === "P2002") {
+    if (error?.code === 'P2002') {
       return NextResponse.json(
-        { message: "Email sudah digunakan." },
+        { message: 'Email sudah digunakan.' },
         { status: 409 }
       );
     }
-    if (error?.code === "P2003") {
+    if (error?.code === 'P2003') {
       return NextResponse.json(
-        { message: "Project tidak valid atau tidak ditemukan." },
+        { message: 'Project tidak valid atau tidak ditemukan.' },
         { status: 400 }
       );
     }
-    console.error("Error creating user:", error);
-    return NextResponse.json({ message: "Internal server error" }, { status: 500 });
+    console.error('Error creating user:', error);
+    return NextResponse.json(
+      { message: 'Internal server error' },
+      { status: 500 }
+    );
   }
 }

@@ -30,6 +30,7 @@ export async function GET(request: NextRequest) {
     if (!currentUser) {
       return NextResponse.json({ message: 'User not found' }, { status: 404 });
     }
+    const roleName = currentUser.role?.name as string | undefined;
 
     // Get query parameters
     const { searchParams } = new URL(request.url);
@@ -39,10 +40,7 @@ export async function GET(request: NextRequest) {
     const whereClause: any = {};
 
     // If user is CLIENT or ADMINISTRATOR, only show cameras from their projects
-    if (
-      currentUser.role?.name === 'CLIENT' ||
-      currentUser.role?.name === 'ADMINISTRATOR'
-    ) {
+    if (roleName === 'CLIENT' || roleName === 'ADMINISTRATOR') {
       const userProjectIds = currentUser.projectUsers.map((pu) => pu.projectId);
 
       if (userProjectIds.length === 0) {
@@ -66,11 +64,6 @@ export async function GET(request: NextRequest) {
             { status: 403 }
           );
         }
-      }
-    } else if (currentUser.role?.name === 'SUPERADMIN') {
-      // SUPERADMIN can see all cameras
-      if (projectIdFilter) {
-        whereClause.projectId = projectIdFilter;
       }
     }
 
