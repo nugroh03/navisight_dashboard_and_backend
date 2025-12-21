@@ -49,9 +49,6 @@ export default function CCTVPage() {
     image: session?.user?.image || null,
   };
 
-  // Check if user is WORKER
-  const isWorker = session?.user?.role === 'WORKER';
-
   const filteredCameras =
     cameras?.filter((camera: CCTV) => {
       const matchesSearch =
@@ -112,31 +109,29 @@ export default function CCTVPage() {
           </div>
 
           <div className='flex gap-3 w-full sm:w-auto flex-wrap sm:flex-nowrap'>
-            {/* Project Filter Dropdown - Hidden for WORKER */}
-            {!isWorker && (
-              <div className='relative flex-1 sm:flex-none sm:min-w-[180px]'>
-                <div className='absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none'>
-                  <FolderKanban className='h-4 w-4 text-[var(--color-primary)]' />
-                </div>
-                <select
-                  value={projectFilter}
-                  onChange={(e) => setProjectFilter(e.target.value)}
-                  className='w-full appearance-none pl-10 pr-9 py-2.5 border border-[var(--color-border)] bg-white text-[var(--color-text)] rounded-lg text-sm font-medium 
-                    hover:border-[var(--color-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-strong)] focus:border-transparent
-                    transition-colors duration-200 cursor-pointer'
-                >
-                  <option value='ALL'>Semua Project</option>
-                  {projects?.map((project) => (
-                    <option key={project.id} value={project.id}>
-                      {project.name}
-                    </option>
-                  ))}
-                </select>
-                <div className='absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none'>
-                  <ChevronDown className='h-4 w-4 text-[var(--color-muted)]' />
-                </div>
+            {/* Project Filter Dropdown */}
+            <div className='relative flex-1 sm:flex-none sm:min-w-[180px]'>
+              <div className='absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none'>
+                <FolderKanban className='h-4 w-4 text-[var(--color-primary)]' />
               </div>
-            )}
+              <select
+                value={projectFilter}
+                onChange={(e) => setProjectFilter(e.target.value)}
+                className='w-full appearance-none pl-10 pr-9 py-2.5 border border-[var(--color-border)] bg-white text-[var(--color-text)] rounded-lg text-sm font-medium 
+                  hover:border-[var(--color-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-strong)] focus:border-transparent
+                  transition-colors duration-200 cursor-pointer'
+              >
+                <option value='ALL'>Semua Project</option>
+                {projects?.map((project) => (
+                  <option key={project.id} value={project.id}>
+                    {project.name}
+                  </option>
+                ))}
+              </select>
+              <div className='absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none'>
+                <ChevronDown className='h-4 w-4 text-[var(--color-muted)]' />
+              </div>
+            </div>
 
             {/* Status Filter Dropdown */}
             <div className='relative flex-1 sm:flex-none sm:min-w-[180px]'>

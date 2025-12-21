@@ -39,8 +39,8 @@ export async function GET(request: NextRequest) {
     // Build where clause based on user role
     const whereClause: any = {};
 
-    // If user is CLIENT, ADMINISTRATOR, or WORKER, only show cameras from their projects
-    if (roleName === 'CLIENT' || roleName === 'ADMINISTRATOR' || roleName === 'WORKER') {
+    // If user is CLIENT or ADMINISTRATOR, only show cameras from their projects
+    if (roleName === 'CLIENT' || roleName === 'ADMINISTRATOR') {
       const userProjectIds = currentUser.projectUsers.map((pu) => pu.projectId);
 
       if (userProjectIds.length === 0) {
