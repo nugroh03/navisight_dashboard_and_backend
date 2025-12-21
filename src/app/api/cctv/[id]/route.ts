@@ -19,6 +19,23 @@ export async function GET(
 
     const { id } = await context.params;
 
+    // Get current user with their projects
+    const currentUser = await prisma.user.findUnique({
+      where: { email: session.user.email },
+      include: {
+        role: true,
+        projectUsers: {
+          select: {
+            projectId: true,
+          },
+        },
+      },
+    });
+
+    if (!currentUser) {
+      return NextResponse.json({ message: 'User not found' }, { status: 404 });
+    }
+
     const camera = await prisma.camera.findUnique({
       where: { id },
       include: {
@@ -36,6 +53,19 @@ export async function GET(
         { message: 'Camera not found' },
         { status: 404 }
       );
+    }
+
+    // Check if user has access to this camera's project
+    const roleName = currentUser.role?.name as string | undefined;
+    if (roleName === 'CLIENT' || roleName === 'ADMINISTRATOR' || roleName === 'WORKER') {
+      const userProjectIds = currentUser.projectUsers.map((pu) => pu.projectId);
+      
+      if (!userProjectIds.includes(camera.projectId)) {
+        return NextResponse.json(
+          { message: 'Access denied to this camera' },
+          { status: 403 }
+        );
+      }
     }
 
     // Transform to match CCTV interface

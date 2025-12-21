@@ -6,9 +6,14 @@ import { useProjects } from '@/hooks/use-projects';
 import { Camera, FolderKanban, ChevronDown } from 'lucide-react';
 import Link from 'next/link';
 import { APP_CONFIG } from '@/config/app';
+import { useSession } from 'next-auth/react';
 
 export default function DashboardPage() {
+  const { data: session } = useSession();
   const [projectFilter, setProjectFilter] = useState<string>('ALL');
+
+  // Check if user is WORKER
+  const isWorker = session?.user?.role === 'WORKER';
 
   // Fetch projects for filter dropdown
   const { data: projects } = useProjects();
@@ -59,35 +64,37 @@ export default function DashboardPage() {
       </div>
 
       {/* Filter */}
-      <div className='card border-[var(--color-border)] bg-white p-4 md:p-6 shadow-lg'>
-        <div className='flex items-center gap-3'>
-          <span className='text-sm font-medium text-[var(--color-text)] whitespace-nowrap'>
-            Filter Project:
-          </span>
-          <div className='relative flex-1 sm:flex-none sm:min-w-[220px]'>
-            <div className='absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none'>
-              <FolderKanban className='h-4 w-4 text-[var(--color-primary)]' />
-            </div>
-            <select
-              value={projectFilter}
-              onChange={(e) => setProjectFilter(e.target.value)}
-              className='w-full appearance-none pl-10 pr-9 py-2.5 border border-[var(--color-border)] bg-white text-[var(--color-text)] rounded-lg text-sm font-medium 
-                hover:border-[var(--color-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-strong)] focus:border-transparent
-                transition-colors duration-200 cursor-pointer'
-            >
-              <option value='ALL'>Semua Project</option>
-              {projects?.map((project) => (
-                <option key={project.id} value={project.id}>
-                  {project.name}
-                </option>
-              ))}
-            </select>
-            <div className='absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none'>
-              <ChevronDown className='h-4 w-4 text-[var(--color-muted)]' />
+      {!isWorker && (
+        <div className='card border-[var(--color-border)] bg-white p-4 md:p-6 shadow-lg'>
+          <div className='flex items-center gap-3'>
+            <span className='text-sm font-medium text-[var(--color-text)] whitespace-nowrap'>
+              Filter Project:
+            </span>
+            <div className='relative flex-1 sm:flex-none sm:min-w-[220px]'>
+              <div className='absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none'>
+                <FolderKanban className='h-4 w-4 text-[var(--color-primary)]' />
+              </div>
+              <select
+                value={projectFilter}
+                onChange={(e) => setProjectFilter(e.target.value)}
+                className='w-full appearance-none pl-10 pr-9 py-2.5 border border-[var(--color-border)] bg-white text-[var(--color-text)] rounded-lg text-sm font-medium 
+                  hover:border-[var(--color-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-strong)] focus:border-transparent
+                  transition-colors duration-200 cursor-pointer'
+              >
+                <option value='ALL'>Semua Project</option>
+                {projects?.map((project) => (
+                  <option key={project.id} value={project.id}>
+                    {project.name}
+                  </option>
+                ))}
+              </select>
+              <div className='absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none'>
+                <ChevronDown className='h-4 w-4 text-[var(--color-muted)]' />
+              </div>
             </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* CCTV Grid */}
       <div className='card border-[var(--color-border)] bg-white p-4 md:p-6 shadow-lg'>
