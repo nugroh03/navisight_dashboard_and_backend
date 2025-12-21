@@ -3,10 +3,88 @@
 import { useState } from 'react';
 import { useCCTV } from '@/hooks/use-cctv';
 import { useProjects } from '@/hooks/use-projects';
-import { Camera, FolderKanban, ChevronDown } from 'lucide-react';
+import {
+  Camera,
+  FolderKanban,
+  ChevronDown,
+  MapPin,
+  Building2,
+  Clock3,
+  ArrowUpRight,
+} from 'lucide-react';
 import Link from 'next/link';
 import { APP_CONFIG } from '@/config/app';
 import { useSession } from 'next-auth/react';
+
+type StatusStyle = {
+  label: string;
+  badgeClass: string;
+  dotClass: string;
+  previewRing: string;
+};
+
+const getStatusStyles = (status?: string): StatusStyle => {
+  switch (status) {
+    case 'ONLINE':
+      return {
+        label: 'Online',
+        badgeClass: 'bg-green-50 text-green-700 border-green-200',
+        dotClass: 'bg-green-400',
+        previewRing: 'ring-1 ring-green-300/60',
+      };
+    case 'MAINTENANCE':
+      return {
+        label: 'Maintenance',
+        badgeClass: 'bg-yellow-50 text-yellow-700 border-yellow-200',
+        dotClass: 'bg-yellow-400',
+        previewRing: 'ring-1 ring-yellow-200/70',
+      };
+    case 'OFFLINE':
+      return {
+        label: 'Offline',
+        badgeClass: 'bg-red-50 text-red-700 border-red-200',
+        dotClass: 'bg-red-400',
+        previewRing: 'ring-1 ring-red-200/60',
+      };
+    default:
+      return {
+        label: 'Unknown',
+        badgeClass: 'bg-gray-100 text-gray-600 border-gray-200',
+        dotClass: 'bg-gray-400',
+        previewRing: 'ring-1 ring-gray-200/60',
+      };
+  }
+};
+
+const formatLastActivity = (lastActivity?: Date | string | null) => {
+  if (!lastActivity) return null;
+  const date = new Date(lastActivity);
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+
+  const formatter = new Intl.RelativeTimeFormat('id-ID', { numeric: 'auto' });
+  let duration = (date.getTime() - Date.now()) / 1000;
+
+  const divisions: { amount: number; unit: Intl.RelativeTimeFormatUnit }[] = [
+    { amount: 60, unit: 'second' },
+    { amount: 60, unit: 'minute' },
+    { amount: 24, unit: 'hour' },
+    { amount: 7, unit: 'day' },
+    { amount: 4.34524, unit: 'week' },
+    { amount: 12, unit: 'month' },
+    { amount: Number.POSITIVE_INFINITY, unit: 'year' },
+  ];
+
+  for (const division of divisions) {
+    if (Math.abs(duration) < division.amount) {
+      return formatter.format(Math.round(duration), division.unit);
+    }
+    duration /= division.amount;
+  }
+
+  return formatter.format(Math.round(duration), 'year');
+};
 
 export default function DashboardPage() {
   const { data: session } = useSession();
@@ -22,31 +100,6 @@ export default function DashboardPage() {
   const { data: cameras = [], isLoading } = useCCTV(
     projectFilter !== 'ALL' ? projectFilter : undefined
   );
-
-  const getStatusBadge = (status?: string) => {
-    switch (status) {
-      case 'ONLINE':
-        return (
-          <span className='tag bg-green-50 text-green-700 border-green-200'>
-            Online
-          </span>
-        );
-      case 'OFFLINE':
-        return (
-          <span className='tag bg-red-50 text-red-700 border-red-200'>
-            Offline
-          </span>
-        );
-      case 'MAINTENANCE':
-        return (
-          <span className='tag bg-yellow-50 text-yellow-700 border-yellow-200'>
-            Maintenance
-          </span>
-        );
-      default:
-        return <span className='tag'>Unknown</span>;
-    }
-  };
 
   return (
     <div className='space-y-4 md:space-y-6 pb-20 md:pb-0'>
@@ -106,7 +159,7 @@ export default function DashboardPage() {
             href='/dashboard/cctv'
             className='text-xs md:text-sm font-medium text-[var(--color-primary)] hover:text-[var(--color-primary-strong)] whitespace-nowrap transition-colors'
           >
-            Lihat Semua →
+            Lihat Semua ›
           </Link>
         </div>
 
@@ -123,57 +176,137 @@ export default function DashboardPage() {
           </div>
         ) : (
           <div className='grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3'>
-            {cameras.slice(0, 6).map((camera) => (
-              <div
-                key={camera.id}
-                className='card border-[var(--color-border)] overflow-hidden'
-              >
-                {/* Preview Stream */}
-                <div className='relative bg-gray-900 aspect-video overflow-hidden'>
-                  {camera.status === 'ONLINE' && camera.streamUrl ? (
-                    <iframe
-                      src={camera.streamUrl}
-                      className='w-full h-full absolute inset-0'
-                      allow='autoplay; fullscreen; picture-in-picture'
-                      title={camera.name}
-                    />
-                  ) : (
-                    <div className='absolute inset-0 flex flex-col items-center justify-center text-white'>
-                      <Camera className='h-12 w-12 opacity-50 mb-2' />
-                      <p className='text-sm opacity-75'>
-                        Camera {camera.status?.toLowerCase() || 'offline'}
-                      </p>
-                    </div>
-                  )}
-                  <div className='absolute top-3 right-3 z-10'>
-                    {getStatusBadge(camera.status)}
-                  </div>
-                </div>
+            {cameras.slice(0, 6).map((camera) => {
+              const statusStyles = getStatusStyles(camera.status);
+              const lastActivityText = formatLastActivity(camera.lastActivity);
+              const infoItems = [
+                {
+                  label: 'Lokasi',
+                  value: camera.location || 'Belum ditentukan',
+                  icon: MapPin,
+                },
+                {
+                  label: 'Project',
+                  value: camera.project?.name || 'Tanpa project',
+                  icon: Building2,
+                },
+                // {
+                //   label: 'Terakhir Aktif',
+                //   value: lastActivityText || 'Belum ada data',
+                //   icon: Clock3,
+                // },
+              ];
 
-                {/* Info */}
-                <div className='p-4'>
-                  <h3 className='font-semibold text-[var(--color-text)] truncate'>
-                    {camera.name || 'Unnamed Camera'}
-                  </h3>
-                  {camera.project && (
-                    <p className='mt-1 text-xs text-[var(--color-primary)] font-medium truncate'>
-                      {camera.project.name}
-                    </p>
-                  )}
-                  {camera.location && (
-                    <p className='mt-1 text-sm text-[var(--color-muted)] truncate'>
-                      {camera.location}
-                    </p>
-                  )}
-                  <Link
-                    href={`/dashboard/cctv/${camera.id}/view?from=dashboard`}
-                    className='mt-3 inline-block text-sm font-medium text-[var(--color-primary)] hover:text-[var(--color-primary-strong)]'
+              return (
+                <article
+                  key={camera.id}
+                  className='card border-[var(--color-border)] overflow-hidden transition-shadow duration-300 hover:shadow-xl focus-within:ring-2 focus-within:ring-[var(--color-primary)]/30'
+                >
+                  {/* Preview Stream */}
+                  <div
+                    className={`relative bg-gray-900 aspect-video overflow-hidden ${statusStyles.previewRing}`}
                   >
-                    Lihat Fullscreen →
-                  </Link>
-                </div>
-              </div>
-            ))}
+                    {camera.status === 'ONLINE' && camera.streamUrl ? (
+                      <iframe
+                        src={camera.streamUrl}
+                        className='w-full h-full absolute inset-0'
+                        allow='autoplay; fullscreen; picture-in-picture'
+                        title={camera.name}
+                      />
+                    ) : (
+                      <div className='absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-b from-slate-800 to-slate-900 text-white px-4 text-center'>
+                        <Camera className='h-12 w-12 opacity-60 mb-3' />
+                        <p className='text-sm font-medium'>
+                          Kamera {statusStyles.label.toLowerCase()}
+                        </p>
+                        <span className='mt-1 text-xs text-white/70'>
+                          {camera.location
+                            ? `Lokasi ${camera.location}`
+                            : 'Hubungi tim untuk pengecekan'}
+                        </span>
+                      </div>
+                    )}
+                    {camera.project?.name && (
+                      <div className='absolute top-3 left-3 rounded-full bg-black/60 px-3 py-1 text-xs font-semibold text-white backdrop-blur-sm'>
+                        {camera.project.name}
+                      </div>
+                    )}
+                    <div className='absolute inset-x-0 bottom-0 flex items-center justify-between gap-3 bg-gradient-to-t from-black/80 via-black/50 to-transparent px-4 py-3 text-white'>
+                      <div className='flex items-center gap-2 text-sm font-semibold'>
+                        <span
+                          className={`h-2.5 w-2.5 rounded-full ${statusStyles.dotClass}`}
+                        ></span>
+                        {statusStyles.label}
+                      </div>
+                      {lastActivityText && (
+                        <div className='flex items-center gap-1 text-xs text-white/80'>
+                          <Clock3 className='h-3.5 w-3.5' />
+                          {lastActivityText}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Info */}
+                  <div className='p-4 space-y-4'>
+                    <div className='space-y-1'>
+                      <div className='flex items-center gap-2'>
+                        <h3 className='font-semibold text-[var(--color-text)] text-base break-words'>
+                          {camera.name || 'Unnamed Camera'}
+                        </h3>
+                        <span
+                          className={`text-[10px] font-semibold uppercase tracking-wide rounded-full border px-2 py-0.5 ${statusStyles.badgeClass}`}
+                        >
+                          {statusStyles.label}
+                        </span>
+                      </div>
+                      {camera.description ? (
+                        <p className='text-sm text-[var(--color-muted)] line-clamp-2 md:line-clamp-none'>
+                          {camera.description}
+                        </p>
+                      ) : (
+                        <p className='text-sm text-[var(--color-muted)] line-clamp-2 md:line-clamp-none'>
+                          {camera.location ||
+                            'Tambahkan catatan singkat agar tim memahami konteks kamera.'}
+                        </p>
+                      )}
+                    </div>
+
+                    <div className='grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-2 text-sm'>
+                      {infoItems.map((info) => {
+                        const Icon = info.icon;
+                        return (
+                          <div
+                            key={info.label}
+                            className='flex items-start gap-2 rounded-xl border border-[var(--color-border)] bg-slate-50 p-3'
+                          >
+                            <Icon className='h-4 w-4 text-[var(--color-primary)] shrink-0' />
+                            <div className='min-w-0'>
+                              <p className='text-xs font-medium uppercase tracking-wide text-[var(--color-muted)]'>
+                                {info.label}
+                              </p>
+                              <p className='font-semibold text-[var(--color-text)] break-words leading-tight'>
+                                {info.value}
+                              </p>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    <div className='flex justify-end'>
+                      <Link
+                        href={`/dashboard/cctv/${camera.id}/view?from=dashboard`}
+                        className='btn-primary inline-flex items-center gap-2 text-sm font-semibold shadow-md transition-all hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary-strong)]/40'
+                      >
+                        Buka Live View
+                        <ArrowUpRight className='h-4 w-4' />
+                      </Link>
+                    </div>
+                  </div>
+                </article>
+              );
+            })}
           </div>
         )}
       </div>

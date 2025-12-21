@@ -14,6 +14,8 @@ import {
   FolderKanban,
   ChevronDown,
   Filter,
+  MapPin,
+  Building2,
 } from 'lucide-react';
 import { useCCTV } from '@/hooks/use-cctv';
 import { useProjects } from '@/hooks/use-projects';
@@ -22,6 +24,43 @@ import type { CCTV } from '@/types';
 import Link from 'next/link';
 import { CCTVDeleteModal } from '@/components/cctv/cctv-delete-modal';
 import { useSession } from 'next-auth/react';
+
+const STATUS_VARIANTS = {
+  ONLINE: {
+    label: 'Online',
+    icon: Wifi,
+    badgeClass:
+      'bg-emerald-50 text-emerald-700 border border-emerald-200 shadow-sm',
+    dotClass: 'bg-emerald-400',
+    previewRing: 'ring-1 ring-emerald-200/80',
+  },
+  OFFLINE: {
+    label: 'Offline',
+    icon: WifiOff,
+    badgeClass:
+      'bg-red-50 text-red-700 border border-red-200 shadow-sm text-red-600',
+    dotClass: 'bg-red-400',
+    previewRing: 'ring-1 ring-red-200/70',
+  },
+  MAINTENANCE: {
+    label: 'Maintenance',
+    icon: Settings,
+    badgeClass:
+      'bg-amber-50 text-amber-700 border border-amber-200 shadow-sm',
+    dotClass: 'bg-amber-400',
+    previewRing: 'ring-1 ring-amber-200/70',
+  },
+  UNKNOWN: {
+    label: 'Unknown',
+    icon: Camera,
+    badgeClass:
+      'bg-gray-100 text-gray-600 border border-gray-200 shadow-sm',
+    dotClass: 'bg-gray-400',
+    previewRing: 'ring-1 ring-gray-200/70',
+  },
+} as const;
+
+type StatusKey = keyof typeof STATUS_VARIANTS;
 
 export default function CCTVPage() {
   const { data: session } = useSession();
@@ -48,6 +87,7 @@ export default function CCTVPage() {
     role: (session?.user?.role as RoleName) || RoleName.CLIENT,
     image: session?.user?.image || null,
   };
+  const isWorker = user.role === RoleName.WORKER;
 
   const filteredCameras =
     cameras?.filter((camera: CCTV) => {
@@ -109,29 +149,31 @@ export default function CCTVPage() {
           </div>
 
           <div className='flex gap-3 w-full sm:w-auto flex-wrap sm:flex-nowrap'>
-            {/* Project Filter Dropdown */}
-            <div className='relative flex-1 sm:flex-none sm:min-w-[180px]'>
-              <div className='absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none'>
-                <FolderKanban className='h-4 w-4 text-[var(--color-primary)]' />
-              </div>
-              <select
-                value={projectFilter}
-                onChange={(e) => setProjectFilter(e.target.value)}
-                className='w-full appearance-none pl-10 pr-9 py-2.5 border border-[var(--color-border)] bg-white text-[var(--color-text)] rounded-lg text-sm font-medium 
+            {/* Project Filter Dropdown (hidden for worker) */}
+            {!isWorker && (
+              <div className='relative flex-1 sm:flex-none sm:min-w-[180px]'>
+                <div className='absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none'>
+                  <FolderKanban className='h-4 w-4 text-[var(--color-primary)]' />
+                </div>
+                <select
+                  value={projectFilter}
+                  onChange={(e) => setProjectFilter(e.target.value)}
+                  className='w-full appearance-none pl-10 pr-9 py-2.5 border border-[var(--color-border)] bg-white text-[var(--color-text)] rounded-lg text-sm font-medium 
                   hover:border-[var(--color-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-strong)] focus:border-transparent
                   transition-colors duration-200 cursor-pointer'
-              >
-                <option value='ALL'>Semua Project</option>
-                {projects?.map((project) => (
-                  <option key={project.id} value={project.id}>
-                    {project.name}
-                  </option>
-                ))}
-              </select>
-              <div className='absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none'>
-                <ChevronDown className='h-4 w-4 text-[var(--color-muted)]' />
+                >
+                  <option value='ALL'>Semua Project</option>
+                  {projects?.map((project) => (
+                    <option key={project.id} value={project.id}>
+                      {project.name}
+                    </option>
+                  ))}
+                </select>
+                <div className='absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none'>
+                  <ChevronDown className='h-4 w-4 text-[var(--color-muted)]' />
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Status Filter Dropdown */}
             <div className='relative flex-1 sm:flex-none sm:min-w-[180px]'>
@@ -259,59 +301,20 @@ export default function CCTVPage() {
       ) : (
         <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6'>
           {filteredCameras.map((camera: CCTV) => {
-            const getStatusBadge = (status: string) => {
-              switch (status) {
-                case 'ONLINE':
-                  return (
-                    <span
-                      className='tag'
-                      style={{
-                        borderColor: '#16a34a',
-                        color: '#16a34a',
-                        background: '#dcfce7',
-                      }}
-                    >
-                      <Wifi className='w-4 h-4' />
-                      Online
-                    </span>
-                  );
-                case 'OFFLINE':
-                  return (
-                    <span
-                      className='tag'
-                      style={{
-                        borderColor: '#dc2626',
-                        color: '#dc2626',
-                        background: '#fee2e2',
-                      }}
-                    >
-                      <WifiOff className='w-4 h-4' />
-                      Offline
-                    </span>
-                  );
-                case 'MAINTENANCE':
-                  return (
-                    <span
-                      className='tag'
-                      style={{
-                        borderColor: '#f59e0b',
-                        color: '#f59e0b',
-                        background: '#fef3c7',
-                      }}
-                    >
-                      <Settings className='w-4 h-4' />
-                      Maintenance
-                    </span>
-                  );
-                default:
-                  return <span className='tag'>{status}</span>;
-              }
-            };
+            const variant =
+              STATUS_VARIANTS[camera.status as StatusKey] ||
+              STATUS_VARIANTS.UNKNOWN;
+            const StatusIcon = variant.icon;
 
             return (
-              <div key={camera.id} className='card p-0 overflow-hidden'>
+              <article
+                key={camera.id}
+                className='card p-0 overflow-hidden flex flex-col'
+              >
                 {/* Camera Preview */}
-                <div className='relative bg-gray-900 aspect-video overflow-hidden'>
+                <div
+                  className={`relative bg-gray-900 aspect-video overflow-hidden ${variant.previewRing}`}
+                >
                   {camera.status === 'ONLINE' && camera.streamUrl ? (
                     <iframe
                       src={camera.streamUrl}
@@ -320,64 +323,88 @@ export default function CCTVPage() {
                       title={camera.name}
                     />
                   ) : (
-                    <div className='absolute inset-0 flex flex-col items-center justify-center text-white'>
-                      <Camera className='h-12 w-12 opacity-50 mb-2' />
-                      <p className='text-sm opacity-75'>
-                        Camera {camera.status.toLowerCase()}
+                    <div className='absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-b from-slate-900/80 to-slate-800 text-white px-8 text-center'>
+                      <Camera className='h-12 w-12 opacity-60 mb-3' />
+                      <p className='text-sm font-medium tracking-wide'>
+                        Kamera {variant.label.toLowerCase()}
                       </p>
+                      <span className='mt-1 text-xs text-white/70'>
+                        {camera.location || 'Belum ada lokasi terdaftar'}
+                      </span>
                     </div>
                   )}
-                  <div className='absolute top-3 right-3 z-10'>
-                    {getStatusBadge(camera.status)}
+
+                  <div className='absolute top-3 left-3 flex flex-wrap gap-2'>
+                    <span
+                      className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold ${variant.badgeClass}`}
+                    >
+                      <StatusIcon className='w-4 h-4' />
+                      {variant.label}
+                    </span>
+                    {camera.project?.name && (
+                      <span className='inline-flex items-center rounded-full bg-black/40 px-3 py-1 text-xs font-semibold text-white backdrop-blur'>
+                        {camera.project.name}
+                      </span>
+                    )}
                   </div>
                 </div>
 
                 {/* Camera Info */}
-                <div className='p-5'>
-                  <div className='flex items-start justify-between mb-3'>
-                    <div className='flex items-center gap-3'>
-                      <div className='w-10 h-10 bg-[var(--color-primary)]/10 rounded-xl flex items-center justify-center shrink-0'>
-                        <Camera className='h-5 w-5 text-[var(--color-primary-strong)]' />
-                      </div>
+                <div className='p-5 space-y-5 flex flex-col flex-1'>
+                  <div className='flex items-start gap-3'>
+                    <div className='w-12 h-12 bg-[var(--color-primary)]/8 rounded-2xl flex items-center justify-center text-[var(--color-primary-strong)] shrink-0'>
+                      <Camera className='h-5 w-5' />
+                    </div>
+                    <div className='flex-1 min-w-0'>
+                      <h3 className='font-semibold text-[var(--color-text)] text-lg break-words'>
+                        {camera.name}
+                      </h3>
+                      <p className='text-sm text-[var(--color-muted)]'>
+                        {camera.description || 'Tidak ada deskripsi'}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className='grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm'>
+                    <div className='rounded-2xl border border-[var(--color-border)] bg-slate-50 p-3 flex items-start gap-3'>
+                      <MapPin className='h-4 w-4 text-[var(--color-primary-strong)] mt-1' />
                       <div>
-                        <h3 className='font-semibold text-[var(--color-text)]'>
-                          {camera.name}
-                        </h3>
-                        <p className='text-sm text-[var(--color-muted)]'>
-                          {camera.description || 'Tidak ada deskripsi'}
+                        <p className='text-xs font-semibold uppercase tracking-wide text-[var(--color-muted)]'>
+                          Lokasi
+                        </p>
+                        <p className='font-semibold text-[var(--color-text)] leading-snug'>
+                          {camera.location || 'Lokasi tidak diset'}
+                        </p>
+                      </div>
+                    </div>
+                    <div className='rounded-2xl border border-[var(--color-border)] bg-slate-50 p-3 flex items-start gap-3'>
+                      <Building2 className='h-4 w-4 text-[var(--color-primary-strong)] mt-1' />
+                      <div>
+                        <p className='text-xs font-semibold uppercase tracking-wide text-[var(--color-muted)]'>
+                          Project
+                        </p>
+                        <p className='font-semibold text-[var(--color-text)] leading-snug'>
+                          {camera.project?.name || 'Belum ditetapkan'}
                         </p>
                       </div>
                     </div>
                   </div>
 
-                  <div className='space-y-2 mb-4'>
-                    <div className='flex items-center gap-2 text-sm text-[var(--color-muted)]'>
-                      <p className='font-medium text-[var(--color-text)]'>
-                        {camera.location || 'Lokasi tidak diset'}
-                      </p>
-                    </div>
-                    <div className='text-sm'>
-                      <p className='text-[var(--color-muted)]'>Project</p>
-                      <p className='font-medium text-[var(--color-text)]'>
-                        {camera.project?.name || 'Unassigned'}
-                      </p>
-                    </div>
-                  </div>
-
                   {/* Actions */}
-                  <div className='flex gap-2 pt-4 border-t border-[var(--color-border)]'>
+                  <div className='mt-auto flex flex-col gap-3 border-t border-[var(--color-border)] pt-4 md:flex-row md:items-center md:justify-between'>
                     <Link
                       href={`/dashboard/cctv/${camera.id}/view?from=cctv`}
-                      className='flex-1 px-3 py-2 text-sm font-medium text-[var(--color-primary-strong)] border border-[var(--color-border)] rounded-lg hover:bg-gray-50 transition-colors flex items-center justify-center gap-2'
+                      className='inline-flex w-full md:flex-1 items-center justify-center gap-2 rounded-full border border-[var(--color-primary-strong)]/40 bg-[var(--color-primary-strong)]/10 px-4 py-2 text-sm font-semibold text-[var(--color-primary-strong)] transition hover:bg-[var(--color-primary-strong)]/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary-strong)]/30'
                     >
                       <Eye className='w-4 h-4' />
                       Lihat
                     </Link>
+
                     {user.role === RoleName.ADMINISTRATOR && (
-                      <>
+                      <div className='flex items-center gap-2'>
                         <Link
                           href={`/dashboard/cctv/${camera.id}/edit`}
-                          className='px-3 py-2 text-sm font-medium text-[var(--color-primary-strong)] border border-[var(--color-border)] rounded-lg hover:bg-gray-50 transition-colors flex items-center justify-center'
+                          className='h-10 w-10 rounded-full border border-[var(--color-border)] flex items-center justify-center text-[var(--color-primary-strong)] transition hover:border-[var(--color-primary-strong)] hover:bg-[var(--color-primary-strong)]/10'
                         >
                           <Edit className='w-4 h-4' />
                         </Link>
@@ -386,15 +413,15 @@ export default function CCTVPage() {
                             setSelectedCamera(camera);
                             setDeleteModalOpen(true);
                           }}
-                          className='px-3 py-2 text-sm font-medium text-red-600 border border-[var(--color-border)] rounded-lg hover:bg-red-50 transition-colors flex items-center justify-center'
+                          className='h-10 w-10 rounded-full border border-red-200 text-red-600 transition hover:bg-red-50 flex items-center justify-center'
                         >
                           <Trash2 className='w-4 h-4' />
                         </button>
-                      </>
+                      </div>
                     )}
                   </div>
                 </div>
-              </div>
+              </article>
             );
           })}
         </div>

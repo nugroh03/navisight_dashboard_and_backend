@@ -1,6 +1,6 @@
 'use client';
 
-import { Home, Grid3x3, User } from 'lucide-react';
+import { Home, Grid3x3, User, Grid2X2, LayoutGrid } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState } from 'react';
@@ -51,7 +51,7 @@ export function BottomNavigation() {
             className='relative flex flex-col items-center justify-center gap-1 flex-1 py-2 rounded-xl text-[var(--color-muted)] hover:text-[var(--color-text)] hover:bg-gray-50 transition-all duration-200'
           >
             <div className='p-1.5 rounded-xl'>
-              <Grid3x3 className='h-6 w-6' />
+              <LayoutGrid className='h-6 w-6' />
             </div>
             <span className='text-xs font-medium'>Menu</span>
           </button>
