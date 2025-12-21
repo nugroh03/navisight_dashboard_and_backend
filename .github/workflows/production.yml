@@ -45,8 +45,8 @@ jobs:
 
       # - name: Build Docker image with manual version and latest tag
       #   run: |
-      #     docker build -t ghcr.io/tanamdev/${{ env.NAME }}:${{ env.VERSION }} .
-      #     docker tag ghcr.io/tanamdev/${{ env.NAME }}:${{ env.VERSION }} ghcr.io/tanamdev/${{ env.NAME }}:latest
+      #     docker build -t ghcr.io/nugroh03/${{ env.NAME }}:${{ env.VERSION }} .
+      #     docker tag ghcr.io/nugroh03/${{ env.NAME }}:${{ env.VERSION }} ghcr.io/nugroh03/${{ env.NAME }}:latest
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
@@ -54,11 +54,11 @@ jobs:
           context: .
           push: true
           tags: |
-            ghcr.io/tanamdev/${{ env.NAME }}:${{ env.VERSION }}
-            ghcr.io/tanamdev/${{ env.NAME }}:latest
-          cache-from: type=registry,ref=ghcr.io/tanamdev/${{ env.NAME }}:buildcache
-          cache-to: type=registry,ref=ghcr.io/tanamdev/${{ env.NAME }}:buildcache,mode=max
+            ghcr.io/nugroh03/${{ env.NAME }}:${{ env.VERSION }}
+            ghcr.io/nugroh03/${{ env.NAME }}:latest
+          cache-from: type=registry,ref=ghcr.io/nugroh03/${{ env.NAME }}:buildcache
+          cache-to: type=registry,ref=ghcr.io/nugroh03/${{ env.NAME }}:buildcache,mode=max
 
-      - name: Trigger Dokploy Webhook
-        if: success()
-        run: curl -X POST "${{ secrets.DOKPLOY_WEBHOOK_URL }}"
+      # - name: Trigger Dokploy Webhook
+      #   if: success()
+      #   run: curl -X POST "${{ secrets.DOKPLOY_WEBHOOK_URL }}"
