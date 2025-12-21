@@ -78,6 +78,9 @@ export default function ProjectsPage() {
 
   const queryClient = useQueryClient();
 
+  // Check if user is ADMINISTRATOR
+  const isAdministrator = session?.user?.role === 'ADMINISTRATOR';
+
   const {
     data: projects,
     isLoading,
@@ -85,6 +88,7 @@ export default function ProjectsPage() {
   } = useQuery({
     queryKey: ['projects'],
     queryFn: fetchProjects,
+    enabled: isAdministrator, // Only fetch if user is ADMINISTRATOR
   });
 
   const createMutation = useMutation({
@@ -167,6 +171,42 @@ export default function ProjectsPage() {
   const handleDelete = (id: string) => {
     deleteMutation.mutate(id);
   };
+
+  // Check if user is not ADMINISTRATOR
+  if (!isAdministrator) {
+    return (
+      <div className='space-y-6'>
+        <div className='card border-[var(--color-border)] bg-white p-8 shadow-lg'>
+          <div className='text-center py-12'>
+            <div className='text-red-600 mb-4'>
+              <svg
+                className='mx-auto h-16 w-16'
+                fill='none'
+                viewBox='0 0 24 24'
+                stroke='currentColor'
+              >
+                <path
+                  strokeLinecap='round'
+                  strokeLinejoin='round'
+                  strokeWidth={2}
+                  d='M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z'
+                />
+              </svg>
+            </div>
+            <h3 className='text-xl font-semibold text-[var(--color-text)] mb-2'>
+              Access Restricted
+            </h3>
+            <p className='text-[var(--color-muted)] max-w-md mx-auto'>
+              Only administrators can access the Projects page. Please contact your system administrator if you need access.
+            </p>
+            <p className='text-sm text-[var(--color-muted)] mt-4'>
+              Your current role: <span className='font-medium'>{session?.user?.role || 'Unknown'}</span>
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (error) {
     return (

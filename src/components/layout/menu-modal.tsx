@@ -12,6 +12,7 @@ import {
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState } from 'react';
+import { useSession } from 'next-auth/react';
 
 interface MenuModalProps {
   isOpen: boolean;
@@ -20,6 +21,7 @@ interface MenuModalProps {
 
 export function MenuModal({ isOpen, onClose }: MenuModalProps) {
   const pathname = usePathname();
+  const { data: session } = useSession();
   const [comingSoonDialog, setComingSoonDialog] = useState<{
     isOpen: boolean;
     featureName: string;
@@ -27,7 +29,7 @@ export function MenuModal({ isOpen, onClose }: MenuModalProps) {
 
   if (!isOpen) return null;
 
-  const menuItems = [
+  const allMenuItems = [
     {
       icon: Camera,
       label: 'CCTV',
@@ -55,6 +57,7 @@ export function MenuModal({ isOpen, onClose }: MenuModalProps) {
       href: '/dashboard/users',
       color: 'bg-orange-50 text-orange-600',
       comingSoon: false,
+      allowedRoles: ['ADMINISTRATOR', 'CLIENT'],
     },
     {
       icon: FolderKanban,
@@ -62,8 +65,17 @@ export function MenuModal({ isOpen, onClose }: MenuModalProps) {
       href: '/dashboard/projects',
       color: 'bg-pink-50 text-pink-600',
       comingSoon: false,
+      allowedRoles: ['ADMINISTRATOR'],
     },
   ];
+
+  // Filter menu items berdasarkan role
+  const userRole = session?.user?.role;
+  const menuItems = allMenuItems.filter((item) => {
+    if (!item.allowedRoles) return true;
+    if (!userRole) return false;
+    return item.allowedRoles.includes(userRole);
+  });
 
   return (
     <div className='fixed inset-0 z-50 md:hidden'>

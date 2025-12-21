@@ -43,9 +43,6 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
                 <p className='font-semibold text-[var(--color-text)]'>
                   {userLabel}
                 </p>
-                <p className='text-[var(--color-muted)]'>
-                  {userRole || 'Profil'}
-                </p>
               </div>
             </div>
             <button
