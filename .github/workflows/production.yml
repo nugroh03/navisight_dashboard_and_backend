@@ -59,6 +59,6 @@ jobs:
           cache-from: type=registry,ref=ghcr.io/nugroh03/${{ env.NAME }}:buildcache
           cache-to: type=registry,ref=ghcr.io/nugroh03/${{ env.NAME }}:buildcache,mode=max
 
-      # - name: Trigger Dokploy Webhook
-      #   if: success()
-      #   run: curl -X POST "${{ secrets.DOKPLOY_WEBHOOK_URL }}"
+      - name: Trigger Dokploy Webhook
+        if: success()
+        run: curl -X POST "${{ secrets.DOKPLOY_WEBHOOK_URL }}"
