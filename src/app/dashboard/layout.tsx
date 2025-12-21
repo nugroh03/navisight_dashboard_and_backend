@@ -5,6 +5,7 @@ import { signOut } from 'next-auth/react';
 import { SidebarNav } from './sidebar-nav';
 import { useSession } from 'next-auth/react';
 import { BottomNavigation } from '@/components/layout/bottom-navigation';
+import { APP_CONFIG } from '@/config/app';
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {
   const { data } = useSession();
@@ -16,17 +17,9 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
       {/* Mobile Header - Only visible on mobile */}
       <header className='md:hidden sticky top-0 z-40 bg-white border-b border-[var(--color-border)] shadow-sm'>
         <div className='flex items-center justify-between px-4 py-3'>
-          <div className='flex items-center gap-3'>
-            <div className='flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--color-primary-strong)] text-sm font-semibold text-white shadow'>
-              N
-            </div>
-            <div>
-              <p className='text-xs font-semibold uppercase tracking-[0.15em] text-[var(--color-primary-strong)]'>
-                NAVISIGHT
-              </p>
-              <p className='text-xs text-[var(--color-muted)]'>Control Deck</p>
-            </div>
-          </div>
+          <h1 className='text-lg font-bold text-[var(--color-primary-strong)] break-words max-w-full'>
+            {APP_CONFIG.name}
+          </h1>
         </div>
       </header>
 
@@ -34,19 +27,9 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
         {/* Desktop Sidebar - Hidden on mobile */}
         <aside className='hidden md:flex h-screen w-72 shrink-0 flex-col justify-between border-r border-[var(--color-border)] bg-white/95 px-5 py-8 shadow-xl backdrop-blur'>
           <div className='space-y-2'>
-            <div className='flex items-center gap-3'>
-              <div className='flex h-12 w-12 items-center justify-center rounded-2xl bg-[var(--color-primary-strong)] text-base font-semibold text-white shadow'>
-                N
-              </div>
-              <div>
-                <p className='text-xs font-semibold uppercase tracking-[0.18em] text-[var(--color-primary-strong)]'>
-                  NAVISIGHT
-                </p>
-                <p className='text-xs text-[var(--color-muted)]'>
-                  Control Deck
-                </p>
-              </div>
-            </div>
+            <h1 className='text-xl font-bold text-[var(--color-primary-strong)] break-words'>
+              {APP_CONFIG.name}
+            </h1>
             <div className='mt-4 h-[1px] bg-[var(--color-border)]/80' />
             <SidebarNav />
           </div>
@@ -76,7 +59,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
         </aside>
 
         {/* Main Content */}
-        <main className='flex-1 px-4 py-6 md:px-6 md:py-10 lg:px-10'>
+        <main className='flex-1 px-4 py-6 pb-24 md:px-6 md:py-10 md:pb-10 lg:px-10'>
           {children}
         </main>
       </div>

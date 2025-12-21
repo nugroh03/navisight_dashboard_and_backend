@@ -1,16 +1,17 @@
-import type { Metadata } from "next";
-import { Manrope } from "next/font/google";
-import { Providers } from "./providers";
-import "./globals.css";
+import type { Metadata } from 'next';
+import { Manrope } from 'next/font/google';
+import { Providers } from './providers';
+import { APP_CONFIG } from '@/config/app';
+import './globals.css';
 
 const manrope = Manrope({
-  variable: "--font-manrope",
-  subsets: ["latin"],
+  variable: '--font-manrope',
+  subsets: ['latin'],
 });
 
 export const metadata: Metadata = {
-  title: "NAVISIGHT",
-  description: "Integrated surveillance system dashboard",
+  title: APP_CONFIG.name,
+  description: 'Integrated surveillance system dashboard',
 };
 
 export default function RootLayout({
@@ -19,7 +20,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang='en'>
       <body className={`${manrope.variable} antialiased`}>
         <Providers>{children}</Providers>
       </body>

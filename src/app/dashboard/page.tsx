@@ -3,6 +3,7 @@
 import { useCCTV } from '@/hooks/use-cctv';
 import { Camera } from 'lucide-react';
 import Link from 'next/link';
+import { APP_CONFIG } from '@/config/app';
 
 export default function DashboardPage() {
   const { data: cameras = [], isLoading } = useCCTV();
@@ -40,7 +41,7 @@ export default function DashboardPage() {
           Dashboard
         </p>
         <h1 className='mt-2 md:mt-3 text-xl md:text-2xl font-semibold text-[var(--color-text)]'>
-          Selamat datang di NAVISIGHT
+          Selamat datang di {APP_CONFIG.name}
         </h1>
         <p className='mt-1 md:mt-2 text-sm md:text-base text-[var(--color-muted)]'>
           Monitoring CCTV dan manajemen proyek dalam satu platform.

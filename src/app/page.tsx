@@ -2,6 +2,7 @@
 
 import { FormEvent, useState } from 'react';
 import { signIn } from 'next-auth/react';
+import { APP_CONFIG } from '@/config/app';
 
 const highlights = [
   {
@@ -52,7 +53,7 @@ export default function Home() {
 
       <div className='relative mx-auto flex min-h-screen max-w-6xl items-center px-6 py-12 lg:px-12'>
         <div className='grid w-full items-center gap-12 lg:grid-cols-[1.15fr_1fr]'>
-          <section className='space-y-8'>
+          {/* <section className='space-y-8'>
             <div className='space-y-4'>
               <h1 className='text-4xl font-semibold leading-tight text-[var(--color-text)] lg:text-5xl'>
                 Masuk ke konsol armada dengan tampilan modern.
@@ -62,7 +63,7 @@ export default function Home() {
               </p>
             </div>
 
-            {/* <div className='grid gap-4 sm:grid-cols-2 lg:grid-cols-3'>
+            <div className='grid gap-4 sm:grid-cols-2 lg:grid-cols-3'>
               {highlights.map((item) => (
                 <div
                   key={item.title}
@@ -76,16 +77,16 @@ export default function Home() {
                   </p>
                 </div>
               ))}
-            </div> */}
-          </section>
+            </div>
+          </section> */}
 
           <section className='card border-white/60 bg-white/90 p-10 shadow-2xl backdrop-blur'>
             <header className='mb-7 space-y-2'>
               <p className='text-sm font-semibold text-[var(--color-primary-strong)]'>
-                Masuk
+                Masuk • Portal
               </p>
               <h2 className='text-3xl font-semibold text-[var(--color-text)]'>
-                Portal NAVISIGHT
+                {APP_CONFIG.name}
               </h2>
               {/* <p className='text-sm text-[var(--color-muted)]'>
                 Gunakan akun administrator dummy untuk akses awal. Kredensial
