@@ -38,6 +38,14 @@ export async function GET(
       );
     }
 
+    // Get user role
+    const user = await prisma.user.findUnique({
+      where: { email: session.user.email },
+      include: { role: true },
+    });
+
+    const isAdmin = user?.role?.name === 'ADMINISTRATOR';
+
     // Transform to match CCTV interface
     const transformedCamera = {
       id: camera.id,
@@ -45,7 +53,7 @@ export async function GET(
       description: camera.description,
       location: camera.location,
       projectId: camera.projectId,
-      streamUrl: camera.urlCamera,
+      streamUrl: isAdmin ? camera.urlCamera : camera.urlCamera, // Still send URL for streaming, but hide in UI for non-admin
       status: (camera.status || 'OFFLINE') as
         | 'ONLINE'
         | 'OFFLINE'

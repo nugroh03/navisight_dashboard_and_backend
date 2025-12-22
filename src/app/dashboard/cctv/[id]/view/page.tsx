@@ -2,6 +2,7 @@
 
 import { useState, useRef } from 'react';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 import {
   ArrowLeft,
   Maximize,
@@ -20,6 +21,7 @@ export default function ViewCCTVPage() {
   const router = useRouter();
   const params = useParams();
   const searchParams = useSearchParams();
+  const { data: session } = useSession();
   const cameraId = params?.id as string;
   const from = searchParams.get('from') || 'cctv';
   const backUrl = from === 'dashboard' ? '/dashboard' : '/dashboard/cctv';
@@ -29,6 +31,17 @@ export default function ViewCCTVPage() {
   const [hasError, setHasError] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const { data: camera, isLoading: cameraLoading } = useCCTVCamera(cameraId);
+  const isAdmin = session?.user?.role === 'ADMINISTRATOR';
+
+  const formatDateTime = (value?: Date | string | null) => {
+    if (!value) return '-';
+    const date = typeof value === 'string' ? new Date(value) : value;
+    if (Number.isNaN(date.getTime())) return '-';
+    return new Intl.DateTimeFormat('id-ID', {
+      dateStyle: 'medium',
+      timeStyle: 'short',
+    }).format(date);
+  };
 
   const handleRefresh = () => {
     setIsLoading(true);
@@ -133,46 +146,99 @@ export default function ViewCCTVPage() {
   return (
     <div className='space-y-4 md:space-y-6 pb-20 md:pb-0'>
       {/* Header */}
-      <div className='card p-4 md:p-6'>
-        <div className='flex flex-col gap-4 md:flex-row md:items-center md:justify-between'>
-          <div className='flex items-center gap-3 md:gap-4'>
-            <Link
-              href={backUrl}
-              className='w-10 h-10 flex items-center justify-center rounded-lg hover:bg-gray-100 transition-colors flex-shrink-0'
-            >
-              <ArrowLeft className='h-5 w-5 text-[var(--color-text)]' />
-            </Link>
-            <div className='flex items-center gap-3 min-w-0'>
-              <div className='w-10 h-10 md:w-12 md:h-12 bg-[var(--color-primary)]/10 rounded-xl flex items-center justify-center flex-shrink-0'>
-                <Camera className='h-5 w-5 md:h-6 md:w-6 text-[var(--color-primary-strong)]' />
-              </div>
-              <div className='min-w-0'>
-                <h1 className='text-base md:text-xl font-semibold text-[var(--color-text)] truncate'>
-                  {camera.name}
-                </h1>
-                <p className='text-xs md:text-sm text-[var(--color-muted)] mt-0.5 truncate'>
-                  {camera.location || 'Lokasi tidak diset'}
-                </p>
+      <div className='card p-0 overflow-hidden'>
+        <div className='p-4 md:p-6 border-b border-[var(--color-border)]'>
+          <div className='flex flex-col gap-4 md:flex-row md:items-center md:justify-between'>
+            <div className='flex items-center gap-3 md:gap-4 min-w-0'>
+              <Link
+                href={backUrl}
+                className='w-10 h-10 flex items-center justify-center rounded-lg hover:bg-gray-100 transition-colors flex-shrink-0'
+              >
+                <ArrowLeft className='h-5 w-5 text-[var(--color-text)]' />
+              </Link>
+              <div className='flex items-center gap-3 min-w-0'>
+                <div className='w-10 h-10 md:w-12 md:h-12 bg-[var(--color-primary)]/10 rounded-xl flex items-center justify-center flex-shrink-0'>
+                  <Camera className='h-5 w-5 md:h-6 md:w-6 text-[var(--color-primary-strong)]' />
+                </div>
+                <div className='min-w-0'>
+                  <h1 className='text-base md:text-xl font-semibold text-[var(--color-text)] truncate'>
+                    {camera.name}
+                  </h1>
+                  <p className='text-xs md:text-sm text-[var(--color-muted)] mt-0.5 truncate'>
+                    {camera.location || 'Lokasi tidak diset'}
+                  </p>
+                </div>
               </div>
             </div>
+            <div className='flex items-center gap-2 flex-wrap justify-between md:justify-end'>
+              {getStatusBadge(camera.status)}
+              <button
+                onClick={handleRefresh}
+                className='px-3 py-2 text-xs md:text-sm font-medium text-[var(--color-text)] border border-[var(--color-border)] rounded-lg hover:bg-gray-50 transition-colors inline-flex items-center gap-2'
+              >
+                <RotateCcw className='h-4 w-4' />
+                <span className='hidden sm:inline'>Refresh</span>
+              </button>
+              <button
+                onClick={handleFullscreen}
+                className='px-3 py-2 text-xs md:text-sm font-medium text-[var(--color-text)] border border-[var(--color-border)] rounded-lg hover:bg-gray-50 transition-colors inline-flex items-center gap-2'
+              >
+                <Maximize className='h-4 w-4' />
+                <span className='hidden sm:inline'>Fullscreen</span>
+              </button>
+            </div>
           </div>
-          <div className='flex items-center gap-2 flex-wrap'>
-            {getStatusBadge(camera.status)}
-            <button
-              onClick={handleRefresh}
-              className='px-3 py-2 text-xs md:text-sm font-medium text-[var(--color-text)] border border-[var(--color-border)] rounded-lg hover:bg-gray-50 transition-colors inline-flex items-center gap-2'
-            >
-              <RotateCcw className='h-4 w-4' />
-              <span className='hidden sm:inline'>Refresh</span>
-            </button>
-            <button
-              onClick={handleFullscreen}
-              className='px-3 py-2 text-xs md:text-sm font-medium text-[var(--color-text)] border border-[var(--color-border)] rounded-lg hover:bg-gray-50 transition-colors inline-flex items-center gap-2'
-            >
-              <Maximize className='h-4 w-4' />
-              <span className='hidden sm:inline'>Fullscreen</span>
-            </button>
-          </div>
+        </div>
+
+        <div className='p-4 md:p-6'>
+          <dl className='grid grid-cols-1 sm:grid-cols-2 gap-4'>
+            <div>
+              <dt className='text-xs md:text-sm text-[var(--color-muted)]'>
+                Project
+              </dt>
+              <dd className='text-sm md:text-base font-medium text-[var(--color-text)] mt-1'>
+                {camera.project?.name || 'Unassigned'}
+              </dd>
+            </div>
+
+            <div>
+              <dt className='text-xs md:text-sm text-[var(--color-muted)]'>
+                Terakhir aktif
+              </dt>
+              <dd className='text-sm md:text-base font-medium text-[var(--color-text)] mt-1'>
+                {formatDateTime(camera.lastActivity)}
+              </dd>
+            </div>
+
+            <div>
+              <dt className='text-xs md:text-sm text-[var(--color-muted)]'>
+                Update terakhir
+              </dt>
+              <dd className='text-sm md:text-base font-medium text-[var(--color-text)] mt-1'>
+                {formatDateTime(camera.updatedAt)}
+              </dd>
+            </div>
+
+            <div className='sm:col-span-2'>
+              <dt className='text-xs md:text-sm text-[var(--color-muted)]'>
+                Deskripsi
+              </dt>
+              <dd className='text-sm md:text-base font-medium text-[var(--color-text)] mt-1 whitespace-pre-wrap'>
+                {camera.description || 'Tidak ada deskripsi'}
+              </dd>
+            </div>
+
+            {isAdmin && (
+              <div className='sm:col-span-2'>
+                <dt className='text-xs md:text-sm text-[var(--color-muted)]'>
+                  Stream URL
+                </dt>
+                <dd className='text-xs md:text-sm font-medium text-[var(--color-text)] mt-1 break-all'>
+                  {camera.streamUrl || 'Tidak dikonfigurasi'}
+                </dd>
+              </div>
+            )}
+          </dl>
         </div>
       </div>
 
@@ -240,57 +306,6 @@ export default function ViewCCTVPage() {
               )}
             </>
           )}
-        </div>
-      </div>
-
-      {/* Camera Info */}
-      <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
-        <div className='card p-4 md:p-5'>
-          <h2 className='text-sm md:text-base font-semibold text-[var(--color-text)] mb-3 md:mb-4'>
-            Informasi Kamera
-          </h2>
-          <div className='space-y-3'>
-            <div>
-              <p className='text-xs md:text-sm text-[var(--color-muted)]'>
-                Deskripsi
-              </p>
-              <p className='text-sm md:text-base font-medium text-[var(--color-text)] mt-1'>
-                {camera.description || 'Tidak ada deskripsi'}
-              </p>
-            </div>
-            <div>
-              <p className='text-xs md:text-sm text-[var(--color-muted)]'>
-                Project
-              </p>
-              <p className='text-sm md:text-base font-medium text-[var(--color-text)] mt-1'>
-                {camera.project?.name || 'Unassigned'}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <div className='card p-4 md:p-5'>
-          <h2 className='text-sm md:text-base font-semibold text-[var(--color-text)] mb-3 md:mb-4'>
-            Detail Stream
-          </h2>
-          <div className='space-y-3'>
-            <div>
-              <p className='text-xs md:text-sm text-[var(--color-muted)]'>
-                Stream URL
-              </p>
-              <p className='text-xs font-medium break-all text-[var(--color-text)] mt-1'>
-                {camera.streamUrl || 'Tidak dikonfigurasi'}
-              </p>
-            </div>
-            <div>
-              <p className='text-xs md:text-sm text-[var(--color-muted)]'>
-                Status
-              </p>
-              <p className='text-sm md:text-base font-medium text-[var(--color-text)] mt-1'>
-                {camera.status}
-              </p>
-            </div>
-          </div>
         </div>
       </div>
     </div>
