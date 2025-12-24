@@ -7,7 +7,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 
 const allowedRoles = ['CLIENT', 'WORKER'] as const;
-type AllowedRole = typeof allowedRoles[number];
+type AllowedRole = (typeof allowedRoles)[number];
 
 const createUserSchema = z.object({
   name: z.string().trim().min(2).optional(),
@@ -144,6 +144,14 @@ export async function POST(request: NextRequest) {
 
     const passwordHash = await hash(password, 10);
 
+    // Tentukan accountType berdasarkan role
+    // CLIENT = EXTERNAL_CUSTOMER (mobile only)
+    // WORKER = INTERNAL_STAFF (bisa mobile + dashboard)
+    const accountType =
+      role === 'CLIENT' ? 'EXTERNAL_CUSTOMER' : 'INTERNAL_STAFF';
+    const canAccessDashboard = role === 'WORKER'; // Worker bisa dashboard, Client tidak
+    const canAccessMobile = true; // Semua user bisa mobile
+
     const result = await prisma.$transaction(async (tx) => {
       const user = await tx.user.create({
         data: {
@@ -151,6 +159,9 @@ export async function POST(request: NextRequest) {
           email,
           passwordHash,
           roleId: roleRecord.id,
+          accountType,
+          canAccessDashboard,
+          canAccessMobile,
         },
       });
 

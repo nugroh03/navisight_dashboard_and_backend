@@ -17,23 +17,27 @@ model Role {
 }
 
 model User {
-  id              String           @id @default(uuid()) @db.Uuid
-  name            String?          @db.VarChar(255)
-  email           String           @unique @db.VarChar(255)
-  emailVerified   DateTime?
-  image           String?
-  passwordHash    String?
-  roleId          String?          @db.Uuid
-  role            Role?            @relation(fields: [roleId], references: [id])
-  projectUsers    ProjectUser[]
-  messageChannels MessageChannel[] @relation("MessageChannelCreatedBy")
-  messages        Message[]
-  messageReads    MessageRead[]
-  accounts        Account[]
-  sessions        Session[]
-  createdAt       DateTime         @default(now())
-  updatedAt       DateTime         @updatedAt
-  deletedAt       DateTime?
+  id                 String           @id @default(uuid()) @db.Uuid
+  name               String?          @db.VarChar(255)
+  email              String           @unique @db.VarChar(255)
+  emailVerified      DateTime?
+  image              String?
+  passwordHash       String?
+  roleId             String?          @db.Uuid
+  role               Role?            @relation(fields: [roleId], references: [id])
+  // Account scope and platform access control
+  accountType        AccountType      @default(INTERNAL_STAFF)
+  canAccessDashboard Boolean          @default(true)
+  canAccessMobile    Boolean          @default(true)
+  projectUsers       ProjectUser[]
+  messageChannels    MessageChannel[] @relation("MessageChannelCreatedBy")
+  messages           Message[]
+  messageReads       MessageRead[]
+  accounts           Account[]
+  sessions           Session[]
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+  deletedAt          DateTime?
 
   @@map("users")
 }
@@ -239,4 +243,9 @@ enum RoleName {
   ADMINISTRATOR
   CLIENT
   WORKER
+}
+
+enum AccountType {
+  INTERNAL_STAFF // Staff internal perusahaan (admin, worker)
+  EXTERNAL_CUSTOMER // Customer eksternal (client mobile)
 }

@@ -1,5 +1,23 @@
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
+## 🔐 Multi-Platform Authentication
+
+This project supports **dual-platform authentication**:
+- **Dashboard (Web)**: For internal staff (Admin, Worker)
+- **Mobile App**: For internal staff + external customers
+
+### Key Features
+✅ **Automatic Configuration**: Users created from dashboard automatically get mobile access
+✅ **Role-Based Access**: CLIENT users are mobile-only, WORKER users get both platforms
+✅ **Secure by Default**: Multi-layer validation at database, application, and endpoint levels
+✅ **Type-Safe**: Full TypeScript + Prisma support
+
+**📖 Documentation:**
+- [Complete Guide](MULTI_PLATFORM_LOGIN.md) - Full documentation
+- [Quick Reference](PLATFORM_ACCESS_QUICK_REF.md) - TL;DR version
+- [Implementation Summary](IMPLEMENTATION_SUMMARY.md) - What was built
+- [Flow Diagrams](PLATFORM_ACCESS_DIAGRAMS.md) - Visual guides
+
 ## Getting Started
 
 First, run the development server:

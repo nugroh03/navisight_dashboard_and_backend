@@ -1,15 +1,63 @@
-import { PrismaAdapter } from "@auth/prisma-adapter";
-import { compare } from "bcryptjs";
-import type { NextAuthOptions } from "next-auth";
-import Credentials from "next-auth/providers/credentials";
-import GitHub from "next-auth/providers/github";
-import { prisma } from "@/lib/prisma";
-import { z } from "zod";
+import { PrismaAdapter } from '@auth/prisma-adapter';
+import { compare } from 'bcryptjs';
+import type { NextAuthOptions } from 'next-auth';
+import Credentials from 'next-auth/providers/credentials';
+import GitHub from 'next-auth/providers/github';
+import { prisma } from '@/lib/prisma';
+import { z } from 'zod';
 
 const credentialsSchema = z.object({
   email: z.string().email(),
   password: z.string().min(6),
+  platform: z.enum(['dashboard', 'mobile']).optional(), // Platform context
 });
+
+/**
+ * Validate if user can access the requested platform
+ */
+function validatePlatformAccess(
+  user: {
+    canAccessDashboard: boolean;
+    canAccessMobile: boolean;
+    accountType: string;
+  },
+  platform?: string
+): { allowed: boolean; reason?: string } {
+  // If no platform specified, allow (backward compatibility)
+  if (!platform) {
+    return { allowed: true };
+  }
+
+  if (platform === 'dashboard') {
+    if (!user.canAccessDashboard) {
+      return {
+        allowed: false,
+        reason: 'Dashboard access is disabled for this account',
+      };
+    }
+    // Block EXTERNAL_CUSTOMER from dashboard
+    if (user.accountType === 'EXTERNAL_CUSTOMER') {
+      return {
+        allowed: false,
+        reason: 'Customer accounts cannot access dashboard',
+      };
+    }
+    return { allowed: true };
+  }
+
+  if (platform === 'mobile') {
+    if (!user.canAccessMobile) {
+      return {
+        allowed: false,
+        reason: 'Mobile access is disabled for this account',
+      };
+    }
+    // Allow both INTERNAL_STAFF and EXTERNAL_CUSTOMER on mobile
+    return { allowed: true };
+  }
+
+  return { allowed: false, reason: 'Invalid platform' };
+}
 
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
@@ -19,22 +67,46 @@ export const authOptions: NextAuthOptions = {
       clientSecret: process.env.GITHUB_SECRET!,
     }),
     Credentials({
-      name: "Email & Password",
+      name: 'Email & Password',
       credentials: {
-        email: { label: "Email", type: "email" },
-        password: { label: "Password", type: "password" },
+        email: { label: 'Email', type: 'email' },
+        password: { label: 'Password', type: 'password' },
       },
       async authorize(raw) {
         const parsed = credentialsSchema.safeParse(raw);
         if (!parsed.success) return null;
-        const { email, password } = parsed.data;
+
+        const { email, password, platform } = parsed.data;
+
         const user = await prisma.user.findFirst({
           where: { email, deletedAt: null },
           include: { role: true },
         });
+
         if (!user?.passwordHash) return null;
+
         const match = await compare(password, user.passwordHash);
         if (!match) return null;
+
+        // Validate platform access
+        const platformCheck = validatePlatformAccess(
+          {
+            canAccessDashboard: user.canAccessDashboard,
+            canAccessMobile: user.canAccessMobile,
+            accountType: user.accountType,
+          },
+          platform
+        );
+
+        if (!platformCheck.allowed) {
+          console.warn(`Platform access denied: ${platformCheck.reason}`, {
+            email: user.email,
+            platform,
+            accountType: user.accountType,
+          });
+          return null; // Return null to reject login
+        }
+
         const { passwordHash, role, ...userData } = user;
         return {
           ...userData,
@@ -43,13 +115,13 @@ export const authOptions: NextAuthOptions = {
       },
     }),
   ],
-  session: { strategy: "jwt" },
-  pages: { signIn: "/" },
+  session: { strategy: 'jwt' },
+  pages: { signIn: '/' },
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
         token.id = user.id;
-        if ("role" in user && user.role) {
+        if ('role' in user && user.role) {
           token.role = user.role.name;
         }
       }
@@ -58,7 +130,7 @@ export const authOptions: NextAuthOptions = {
           where: { email: token.email, deletedAt: null },
           select: {
             id: true,
-            role: { select: { name: true } }
+            role: { select: { name: true } },
           },
         });
         if (dbUser) {

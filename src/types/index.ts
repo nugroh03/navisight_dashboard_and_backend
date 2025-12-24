@@ -1,4 +1,4 @@
-import { RoleName, Project } from '@prisma/client';
+import { RoleName, Project, AccountType } from '@prisma/client';
 
 // User types
 export interface User {
@@ -7,6 +7,30 @@ export interface User {
   email: string;
   role: RoleName;
   image?: string | null;
+  accountType?: AccountType;
+  canAccessDashboard?: boolean;
+  canAccessMobile?: boolean;
+}
+
+// Platform login types
+export type Platform = 'dashboard' | 'mobile';
+
+export interface PlatformLoginRequest {
+  email: string;
+  password: string;
+}
+
+export interface PlatformLoginResponse {
+  success: boolean;
+  user?: {
+    id: string;
+    name?: string | null;
+    email: string;
+    role?: string;
+    accountType: AccountType;
+  };
+  message?: string;
+  error?: string;
 }
 
 // CCTV types
