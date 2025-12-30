@@ -119,6 +119,7 @@ export function CCTVCard({
             className={`bg-muted rounded-lg overflow-hidden flex items-center justify-center ${
               isCompact ? 'aspect-video min-h-30' : 'aspect-video'
             }`}
+            style={{ position: 'relative' }}
           >
             <CameraPreview
               url={camera.streamUrl}
@@ -237,8 +238,13 @@ function CameraPreview({ url, cameraId, status }: CameraPreviewProps) {
     );
   const displayUrl = isMjpeg ? `/api/cctv/${cameraId}/snapshot` : url;
 
+  // Some CCTV endpoints render an HTML page with its own margins/scrollbars.
+  // We can't style inside a cross-origin iframe, so we slightly overscan the
+  // iframe within an overflow-hidden container to hide any scrollbars.
+  const iframeOverscanPx = 20;
+
   return (
-    <div className='relative w-full h-full bg-black'>
+    <div className='relative w-full h-full bg-black overflow-hidden'>
       {isMjpeg ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
@@ -254,10 +260,21 @@ function CameraPreview({ url, cameraId, status }: CameraPreviewProps) {
       ) : (
         <iframe
           src={displayUrl}
-          className='w-full h-full'
+          className='border-0 absolute'
+          style={{
+            top: -iframeOverscanPx / 2,
+            left: -iframeOverscanPx / 2,
+            width: `calc(100% + ${iframeOverscanPx}px)`,
+            height: `calc(100% + ${iframeOverscanPx}px)`,
+            overflow: 'hidden',
+            margin: 0,
+            padding: 0,
+            display: 'block',
+          }}
           allow='autoplay; fullscreen; picture-in-picture'
           allowFullScreen
           loading='lazy'
+          scrolling='no'
           onLoad={() => setLoading(false)}
           onError={() => {
             setError('Preview unavailable');

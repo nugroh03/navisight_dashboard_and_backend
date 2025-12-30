@@ -90,6 +90,10 @@ export default function DashboardPage() {
   const { data: session } = useSession();
   const [projectFilter, setProjectFilter] = useState<string>('ALL');
 
+  // Many CCTV endpoints render a full HTML page inside an iframe (often with scrollbars).
+  // We can't style cross-origin iframe contents, so we scale it down to fit and hide overflow.
+  const iframeScale = 0.9;
+
   // Check if user is WORKER
   const isWorker = session?.user?.role === 'WORKER';
 
@@ -207,12 +211,25 @@ export default function DashboardPage() {
                     className={`relative bg-gray-900 aspect-video overflow-hidden ${statusStyles.previewRing}`}
                   >
                     {camera.status === 'ONLINE' && camera.streamUrl ? (
-                      <iframe
-                        src={camera.streamUrl}
-                        className='w-full h-full absolute inset-0'
-                        allow='autoplay; fullscreen; picture-in-picture'
-                        title={camera.name}
-                      />
+                      <div className='absolute inset-0 overflow-hidden bg-black'>
+                        <iframe
+                          src={camera.streamUrl}
+                          className='absolute border-0'
+                          style={{
+                            top: 0,
+                            left: 0,
+                            width: `calc(100% / ${iframeScale})`,
+                            height: `calc(100% / ${iframeScale})`,
+                            transform: `scale(${iframeScale})`,
+                            transformOrigin: 'top left',
+                            display: 'block',
+                          }}
+                          allow='autoplay; fullscreen; picture-in-picture'
+                          allowFullScreen
+                          scrolling='no'
+                          title={camera.name}
+                        />
+                      </div>
                     ) : (
                       <div className='absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-b from-slate-800 to-slate-900 text-white px-4 text-center'>
                         <Camera className='h-12 w-12 opacity-60 mb-3' />

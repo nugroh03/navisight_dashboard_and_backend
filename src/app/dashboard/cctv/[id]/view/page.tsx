@@ -7,7 +7,6 @@ import {
   ArrowLeft,
   Maximize,
   RotateCcw,
-  Loader2,
   AlertCircle,
   Camera,
   Wifi,
@@ -27,11 +26,17 @@ export default function ViewCCTVPage() {
   const backUrl = from === 'dashboard' ? '/dashboard' : '/dashboard/cctv';
   const videoRef = useRef<HTMLVideoElement>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
-  const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const { data: camera, isLoading: cameraLoading } = useCCTVCamera(cameraId);
   const isAdmin = session?.user?.role === 'ADMINISTRATOR';
+
+  // Zoom & center the iframe content so the video area
+  // berada di tengah dan tidak menempel di pojok.
+  const iframeZoom = 1.4;
+  // Geser sedikit secara horizontal (dalam persen)
+  // nilai positif menggeser gambar ke kanan, negatif ke kiri.
+  const iframeOffsetXPercent = 8; // silakan sesuaikan jika masih kurang pas
 
   const formatDateTime = (value?: Date | string | null) => {
     if (!value) return '-';
@@ -44,7 +49,6 @@ export default function ViewCCTVPage() {
   };
 
   const handleRefresh = () => {
-    setIsLoading(true);
     setHasError(false);
     setErrorMessage('');
 
@@ -244,7 +248,7 @@ export default function ViewCCTVPage() {
 
       {/* Video Player */}
       <div className='card p-0 overflow-hidden'>
-        <div className='relative bg-black aspect-video w-full'>
+        <div className='relative bg-black aspect-video w-full overflow-hidden'>
           {camera.status !== 'ONLINE' ? (
             <div className='absolute inset-0 flex flex-col items-center justify-center text-white px-4'>
               <Camera className='h-12 w-12 md:h-16 md:w-16 mb-3 md:mb-4 text-gray-400' />
@@ -267,23 +271,29 @@ export default function ViewCCTVPage() {
               <iframe
                 ref={iframeRef}
                 src={camera.streamUrl}
-                className='w-full h-full absolute inset-0'
+                className='absolute border-0'
+                style={{
+                  top: '50%',
+                  left: '50%',
+                  width: `${100 / iframeZoom}%`,
+                  height: `${100 / iframeZoom}%`,
+
+                  // 👉 tambahkan offset X (misal +18%)
+                  transform: `
+      translate(
+        calc(-50% + 20%),
+        calc(-50% + -12%)
+      )
+      scale(${iframeZoom})
+    `,
+                  transformOrigin: 'center center',
+                  display: 'block',
+                  background: 'black',
+                }}
                 allow='autoplay; fullscreen; picture-in-picture'
                 allowFullScreen
-                onLoad={() => setIsLoading(false)}
-                onError={() => {
-                  setIsLoading(false);
-                  setHasError(true);
-                  setErrorMessage('Gagal memuat stream');
-                }}
+                scrolling='no'
               />
-
-              {isLoading && (
-                <div className='absolute inset-0 flex flex-col items-center justify-center bg-black/50 text-white'>
-                  <Loader2 className='h-6 w-6 md:h-8 md:w-8 animate-spin mb-2' />
-                  <span className='text-xs md:text-sm'>Memuat stream...</span>
-                </div>
-              )}
 
               {hasError && (
                 <div className='absolute inset-0 flex flex-col items-center justify-center bg-black/80 text-white p-4 md:p-8'>
