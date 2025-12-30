@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { type CSSProperties, useState, useRef } from 'react';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import {
@@ -9,9 +9,11 @@ import {
   RotateCcw,
   AlertCircle,
   Camera,
-  Wifi,
   WifiOff,
   Settings,
+  Info,
+  MapPin,
+  Activity,
 } from 'lucide-react';
 import { useCCTVCamera } from '@/hooks/use-cctv';
 import Link from 'next/link';
@@ -24,19 +26,11 @@ export default function ViewCCTVPage() {
   const cameraId = params?.id as string;
   const from = searchParams.get('from') || 'cctv';
   const backUrl = from === 'dashboard' ? '/dashboard' : '/dashboard/cctv';
-  const videoRef = useRef<HTMLVideoElement>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [hasError, setHasError] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const { data: camera, isLoading: cameraLoading } = useCCTVCamera(cameraId);
   const isAdmin = session?.user?.role === 'ADMINISTRATOR';
-
-  // Zoom & center the iframe content so the video area
-  // berada di tengah dan tidak menempel di pojok.
-  const iframeZoom = 1.4;
-  // Geser sedikit secara horizontal (dalam persen)
-  // nilai positif menggeser gambar ke kanan, negatif ke kiri.
-  const iframeOffsetXPercent = 8; // silakan sesuaikan jika masih kurang pas
 
   const formatDateTime = (value?: Date | string | null) => {
     if (!value) return '-';
@@ -55,13 +49,10 @@ export default function ViewCCTVPage() {
     if (iframeRef.current) {
       iframeRef.current.src = iframeRef.current.src;
     }
-    if (videoRef.current) {
-      videoRef.current.load();
-    }
   };
 
   const handleFullscreen = () => {
-    const element = iframeRef.current || videoRef.current;
+    const element = iframeRef.current;
     if (element?.requestFullscreen) {
       element.requestFullscreen();
     }
@@ -69,11 +60,14 @@ export default function ViewCCTVPage() {
 
   if (cameraLoading) {
     return (
-      <div className='flex items-center justify-center min-h-[50vh] pb-20 md:pb-0'>
-        <div className='text-center'>
-          <div className='animate-spin rounded-full h-8 w-8 border-b-2 border-[var(--color-primary-strong)] mx-auto'></div>
-          <p className='text-sm text-[var(--color-muted)] mt-3'>
-            Memuat kamera...
+      <div className='flex items-center justify-center min-h-[60vh]'>
+        <div className='text-center space-y-4'>
+          <div className='relative mx-auto w-16 h-16'>
+            <div className='absolute inset-0 border-4 border-[var(--color-primary)]/20 rounded-full'></div>
+            <div className='absolute inset-0 border-4 border-[var(--color-primary)] rounded-full border-t-transparent animate-spin'></div>
+          </div>
+          <p className='text-[var(--color-muted)] font-medium animate-pulse'>
+            Menghubungkan ke kamera...
           </p>
         </div>
       </div>
@@ -82,18 +76,24 @@ export default function ViewCCTVPage() {
 
   if (!camera) {
     return (
-      <div className='card p-8 md:p-12 text-center mx-4 md:mx-0 mt-4 md:mt-0'>
-        <Camera className='h-12 w-12 md:h-16 md:w-16 mx-auto text-[var(--color-muted)] opacity-50 mb-4' />
-        <p className='text-sm md:text-base text-[var(--color-muted)] mb-4'>
-          Kamera tidak ditemukan
+      <div className='flex flex-col items-center justify-center min-h-[60vh] text-center px-4'>
+        <div className='w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mb-6'>
+          <Camera className='h-10 w-10 text-gray-400' />
+        </div>
+        <h2 className='text-xl font-semibold text-[var(--color-text)] mb-2'>
+          Kamera Tidak Ditemukan
+        </h2>
+        <p className='text-[var(--color-muted)] max-w-md mb-8'>
+          Kamera yang Anda cari mungkin telah dihapus atau Anda tidak memiliki
+          akses untuk melihatnya.
         </p>
-        <button
-          onClick={() => router.push(backUrl)}
-          className='btn-primary inline-flex items-center gap-2 text-sm md:text-base'
+        <Link
+          href={backUrl}
+          className='btn-primary inline-flex items-center gap-2'
         >
           <ArrowLeft className='h-4 w-4' />
-          Kembali
-        </button>
+          Kembali ke Dashboard
+        </Link>
       </div>
     );
   }
@@ -102,221 +102,219 @@ export default function ViewCCTVPage() {
     switch (status) {
       case 'ONLINE':
         return (
-          <span
-            className='tag'
-            style={{
-              borderColor: '#16a34a',
-              color: '#16a34a',
-              background: '#dcfce7',
-            }}
-          >
-            <Wifi className='w-4 h-4' />
+          <span className='inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-500 border border-emerald-500/20'>
+            <span className='relative flex h-2 w-2'>
+              <span className='animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75'></span>
+              <span className='relative inline-flex rounded-full h-2 w-2 bg-emerald-500'></span>
+            </span>
             Online
           </span>
         );
       case 'OFFLINE':
         return (
-          <span
-            className='tag'
-            style={{
-              borderColor: '#dc2626',
-              color: '#dc2626',
-              background: '#fee2e2',
-            }}
-          >
-            <WifiOff className='w-4 h-4' />
+          <span className='inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-red-500/10 text-red-500 border border-red-500/20'>
+            <WifiOff className='w-3 h-3' />
             Offline
           </span>
         );
       case 'MAINTENANCE':
         return (
-          <span
-            className='tag'
-            style={{
-              borderColor: '#f59e0b',
-              color: '#f59e0b',
-              background: '#fef3c7',
-            }}
-          >
-            <Settings className='w-4 h-4' />
+          <span className='inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-amber-500/10 text-amber-500 border border-amber-500/20'>
+            <Settings className='w-3 h-3' />
             Maintenance
           </span>
         );
       default:
-        return <span className='tag'>{status}</span>;
+        return (
+          <span className='inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-gray-500/10 text-gray-500 border border-gray-500/20'>
+            {status}
+          </span>
+        );
     }
   };
 
   return (
-    <div className='space-y-4 md:space-y-6 pb-20 md:pb-0'>
-      {/* Header */}
-      <div className='card p-0 overflow-hidden'>
-        <div className='p-4 md:p-6 border-b border-[var(--color-border)]'>
-          <div className='flex flex-col gap-4 md:flex-row md:items-center md:justify-between'>
-            <div className='flex items-center gap-3 md:gap-4 min-w-0'>
-              <Link
-                href={backUrl}
-                className='w-10 h-10 flex items-center justify-center rounded-lg hover:bg-gray-100 transition-colors flex-shrink-0'
-              >
-                <ArrowLeft className='h-5 w-5 text-[var(--color-text)]' />
-              </Link>
-              <div className='flex items-center gap-3 min-w-0'>
-                <div className='w-10 h-10 md:w-12 md:h-12 bg-[var(--color-primary)]/10 rounded-xl flex items-center justify-center flex-shrink-0'>
-                  <Camera className='h-5 w-5 md:h-6 md:w-6 text-[var(--color-primary-strong)]' />
-                </div>
-                <div className='min-w-0'>
-                  <h1 className='text-base md:text-xl font-semibold text-[var(--color-text)] truncate'>
-                    {camera.name}
-                  </h1>
-                  <p className='text-xs md:text-sm text-[var(--color-muted)] mt-0.5 truncate'>
-                    {camera.location || 'Lokasi tidak diset'}
+    <div className='max-w-7xl mx-auto space-y-6 pb-20 animate-in fade-in duration-500'>
+      {/* Header Navigation */}
+      <div className='flex flex-col sm:flex-row sm:items-center justify-between gap-4'>
+        <div className='flex items-center gap-4'>
+          <Link
+            href={backUrl}
+            className='w-10 h-10 flex items-center justify-center rounded-xl bg-white border border-gray-200 text-gray-600 hover:bg-gray-50 hover:border-gray-300 transition-all shadow-sm'
+          >
+            <ArrowLeft className='h-5 w-5' />
+          </Link>
+          <div>
+            <h1 className='text-xl font-bold text-[var(--color-text)] flex items-center gap-3'>
+              {camera.name}
+              {getStatusBadge(camera.status)}
+            </h1>
+            <div className='flex items-center gap-2 text-sm text-[var(--color-muted)] mt-1'>
+              <MapPin className='w-3.5 h-3.5' />
+              {camera.location || 'Lokasi tidak diset'}
+              <span className='text-gray-300'>•</span>
+              <span className='flex items-center gap-1'>
+                <Activity className='w-3.5 h-3.5' />
+                Last active: {formatDateTime(camera.lastActivity)}
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Content Grid */}
+      <div className='grid grid-cols-1 lg:grid-cols-3 gap-6'>
+        {/* Video Player Column */}
+        <div className='lg:col-span-2 space-y-4'>
+          <div className='relative rounded-2xl overflow-hidden bg-neutral-900 shadow-2xl ring-1 ring-black/5'>
+            {/* Video Container */}
+            <div className='relative w-full aspect-video bg-black flex items-center justify-center overflow-hidden group'>
+              {camera.status !== 'ONLINE' ? (
+                <div className='flex flex-col items-center justify-center text-neutral-500 p-8 text-center'>
+                  <WifiOff className='h-16 w-16 mb-4 opacity-50' />
+                  <p className='text-lg font-medium text-neutral-400'>
+                    Kamera Offline
+                  </p>
+                  <p className='text-sm mt-2 max-w-xs'>
+                    Tidak dapat terhubung ke stream kamera saat ini.
                   </p>
                 </div>
+              ) : !camera.streamUrl ? (
+                <div className='flex flex-col items-center justify-center text-neutral-500 p-8 text-center'>
+                  <AlertCircle className='h-16 w-16 mb-4 text-amber-500/50' />
+                  <p className='text-lg font-medium text-neutral-400'>
+                    Stream Tidak Dikonfigurasi
+                  </p>
+                </div>
+              ) : (
+                <>
+                  <iframe
+                    ref={iframeRef}
+                    src={camera.streamUrl}
+                    // Contain: tinggi mengikuti area hitam, lebar mengikuti tinggi (rasio CCTV umum 4:3)
+                    className='h-full w-auto border-0'
+                    style={{
+                      aspectRatio: '4 / 3',
+                      background: 'black',
+                      display: 'block',
+                    }}
+                    allow='autoplay; fullscreen; picture-in-picture'
+                    allowFullScreen
+                    scrolling='no'
+                  />
+
+                  {/* Error Overlay */}
+                  {hasError && (
+                    <div className='absolute inset-0 z-10 flex flex-col items-center justify-center bg-black/90 backdrop-blur-sm text-white p-8'>
+                      <AlertCircle className='h-12 w-12 mb-4 text-red-500' />
+                      <p className='text-lg font-medium mb-2'>
+                        Koneksi Terputus
+                      </p>
+                      <button
+                        onClick={handleRefresh}
+                        className='mt-4 px-4 py-2 text-sm font-medium bg-white/10 hover:bg-white/20 rounded-lg transition-colors flex items-center gap-2'
+                      >
+                        <RotateCcw className='h-4 w-4' />
+                        Muat Ulang
+                      </button>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+
+            {/* Player Controls Bar */}
+            <div className='bg-neutral-800/50 backdrop-blur border-t border-white/5 p-3'>
+              <div className='flex items-center justify-end gap-1'>
+                <button
+                  onClick={handleRefresh}
+                  className='p-2 text-neutral-400 hover:text-white hover:bg-white/5 rounded-lg transition-colors'
+                  title='Refresh Stream'
+                >
+                  <RotateCcw className='h-4 w-4' />
+                </button>
+                <div className='w-px h-4 bg-white/10 mx-1'></div>
+                <button
+                  onClick={handleFullscreen}
+                  className='p-2 text-neutral-400 hover:text-white hover:bg-white/5 rounded-lg transition-colors'
+                  title='Fullscreen'
+                >
+                  <Maximize className='h-4 w-4' />
+                </button>
               </div>
             </div>
-            <div className='flex items-center gap-2 flex-wrap justify-between md:justify-end'>
-              {getStatusBadge(camera.status)}
-              <button
-                onClick={handleRefresh}
-                className='px-3 py-2 text-xs md:text-sm font-medium text-[var(--color-text)] border border-[var(--color-border)] rounded-lg hover:bg-gray-50 transition-colors inline-flex items-center gap-2'
-              >
-                <RotateCcw className='h-4 w-4' />
-                <span className='hidden sm:inline'>Refresh</span>
-              </button>
-              <button
-                onClick={handleFullscreen}
-                className='px-3 py-2 text-xs md:text-sm font-medium text-[var(--color-text)] border border-[var(--color-border)] rounded-lg hover:bg-gray-50 transition-colors inline-flex items-center gap-2'
-              >
-                <Maximize className='h-4 w-4' />
-                <span className='hidden sm:inline'>Fullscreen</span>
-              </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Info Column */}
+      <div className='space-y-6'>
+        {/* Quick Stats Card */}
+        <div className='card p-5 space-y-4'>
+          <h3 className='font-semibold text-[var(--color-text)] flex items-center gap-2'>
+            <Info className='h-4 w-4 text-[var(--color-primary)]' />
+            Informasi Kamera
+          </h3>
+
+          <div className='space-y-3'>
+            <div className='p-3 rounded-lg bg-gray-50 border border-gray-100'>
+              <p className='text-xs text-[var(--color-muted)] mb-1'>Project</p>
+              <p className='font-medium text-[var(--color-text)]'>
+                {camera.project?.name || 'Unassigned'}
+              </p>
+            </div>
+
+            <div className='grid grid-cols-2 gap-3'>
+              <div className='p-3 rounded-lg bg-gray-50 border border-gray-100'>
+                <p className='text-xs text-[var(--color-muted)] mb-1'>Dibuat</p>
+                <p className='text-sm font-medium text-[var(--color-text)]'>
+                  {formatDateTime(camera.createdAt).split(',')[0]}
+                </p>
+              </div>
+              <div className='p-3 rounded-lg bg-gray-50 border border-gray-100'>
+                <p className='text-xs text-[var(--color-muted)] mb-1'>Update</p>
+                <p className='text-sm font-medium text-[var(--color-text)]'>
+                  {formatDateTime(camera.updatedAt).split(',')[0]}
+                </p>
+              </div>
             </div>
           </div>
         </div>
 
-        <div className='p-4 md:p-6'>
-          <dl className='grid grid-cols-1 sm:grid-cols-2 gap-4'>
-            <div>
-              <dt className='text-xs md:text-sm text-[var(--color-muted)]'>
-                Project
-              </dt>
-              <dd className='text-sm md:text-base font-medium text-[var(--color-text)] mt-1'>
-                {camera.project?.name || 'Unassigned'}
-              </dd>
-            </div>
+        {/* Description Card */}
+        <div className='card p-5'>
+          <h3 className='font-semibold text-[var(--color-text)] mb-3'>
+            Deskripsi
+          </h3>
+          <p className='text-sm text-[var(--color-muted)] leading-relaxed whitespace-pre-wrap'>
+            {camera.description ||
+              'Tidak ada deskripsi tambahan untuk kamera ini.'}
+          </p>
+        </div>
 
-            <div>
-              <dt className='text-xs md:text-sm text-[var(--color-muted)]'>
-                Terakhir aktif
-              </dt>
-              <dd className='text-sm md:text-base font-medium text-[var(--color-text)] mt-1'>
-                {formatDateTime(camera.lastActivity)}
-              </dd>
-            </div>
-
-            <div>
-              <dt className='text-xs md:text-sm text-[var(--color-muted)]'>
-                Update terakhir
-              </dt>
-              <dd className='text-sm md:text-base font-medium text-[var(--color-text)] mt-1'>
-                {formatDateTime(camera.updatedAt)}
-              </dd>
-            </div>
-
-            <div className='sm:col-span-2'>
-              <dt className='text-xs md:text-sm text-[var(--color-muted)]'>
-                Deskripsi
-              </dt>
-              <dd className='text-sm md:text-base font-medium text-[var(--color-text)] mt-1 whitespace-pre-wrap'>
-                {camera.description || 'Tidak ada deskripsi'}
-              </dd>
-            </div>
-
-            {isAdmin && (
-              <div className='sm:col-span-2'>
-                <dt className='text-xs md:text-sm text-[var(--color-muted)]'>
-                  Stream URL
-                </dt>
-                <dd className='text-xs md:text-sm font-medium text-[var(--color-text)] mt-1 break-all'>
-                  {camera.streamUrl || 'Tidak dikonfigurasi'}
-                </dd>
+        {/* Admin Info */}
+        {isAdmin && (
+          <div className='card p-5 border-l-4 border-l-amber-400'>
+            <h3 className='font-semibold text-[var(--color-text)] mb-2 flex items-center gap-2'>
+              <Settings className='h-4 w-4 text-amber-500' />
+              Konfigurasi Admin
+            </h3>
+            <div className='space-y-2'>
+              <div>
+                <p className='text-xs text-[var(--color-muted)]'>Stream URL</p>
+                <code className='block mt-1 p-2 bg-gray-100 rounded text-xs font-mono break-all text-gray-600'>
+                  {camera.streamUrl || '-'}
+                </code>
               </div>
-            )}
-          </dl>
-        </div>
-      </div>
-
-      {/* Video Player */}
-      <div className='card p-0 overflow-hidden'>
-        <div className='relative bg-black aspect-video w-full overflow-hidden'>
-          {camera.status !== 'ONLINE' ? (
-            <div className='absolute inset-0 flex flex-col items-center justify-center text-white px-4'>
-              <Camera className='h-12 w-12 md:h-16 md:w-16 mb-3 md:mb-4 text-gray-400' />
-              <p className='text-base md:text-lg font-medium'>
-                Camera {camera.status.toLowerCase()}
-              </p>
-              <p className='text-xs md:text-sm text-gray-400 mt-2 text-center'>
-                Stream kamera tidak tersedia saat ini
-              </p>
+              <div>
+                <p className='text-xs text-[var(--color-muted)]'>Camera ID</p>
+                <code className='block mt-1 text-xs font-mono text-gray-500'>
+                  {camera.id}
+                </code>
+              </div>
             </div>
-          ) : !camera.streamUrl ? (
-            <div className='absolute inset-0 flex flex-col items-center justify-center text-white px-4'>
-              <AlertCircle className='h-12 w-12 md:h-16 md:w-16 mb-3 md:mb-4 text-yellow-400' />
-              <p className='text-base md:text-lg font-medium text-center'>
-                URL stream tidak dikonfigurasi
-              </p>
-            </div>
-          ) : (
-            <>
-              <iframe
-                ref={iframeRef}
-                src={camera.streamUrl}
-                className='absolute border-0'
-                style={{
-                  top: '50%',
-                  left: '50%',
-                  width: `${100 / iframeZoom}%`,
-                  height: `${100 / iframeZoom}%`,
-
-                  // 👉 tambahkan offset X (misal +18%)
-                  transform: `
-      translate(
-        calc(-50% + 20%),
-        calc(-50% + -12%)
-      )
-      scale(${iframeZoom})
-    `,
-                  transformOrigin: 'center center',
-                  display: 'block',
-                  background: 'black',
-                }}
-                allow='autoplay; fullscreen; picture-in-picture'
-                allowFullScreen
-                scrolling='no'
-              />
-
-              {hasError && (
-                <div className='absolute inset-0 flex flex-col items-center justify-center bg-black/80 text-white p-4 md:p-8'>
-                  <AlertCircle className='h-12 w-12 md:h-16 md:w-16 mb-3 md:mb-4 text-red-400' />
-                  <p className='text-base md:text-lg font-medium mb-2'>
-                    Error Stream
-                  </p>
-                  <p className='text-xs md:text-sm text-center text-gray-300 max-w-md'>
-                    {errorMessage ||
-                      'Tidak dapat memuat stream kamera. Silakan periksa URL stream dan coba lagi.'}
-                  </p>
-                  <button
-                    onClick={handleRefresh}
-                    className='mt-4 px-4 py-2 text-xs md:text-sm font-medium text-white border border-white/30 rounded-lg hover:bg-white/10 transition-colors inline-flex items-center gap-2'
-                  >
-                    <RotateCcw className='h-4 w-4' />
-                    Coba Lagi
-                  </button>
-                </div>
-              )}
-            </>
-          )}
-        </div>
+          </div>
+        )}
       </div>
     </div>
   );
