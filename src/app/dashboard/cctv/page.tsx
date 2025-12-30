@@ -45,16 +45,14 @@ const STATUS_VARIANTS = {
   MAINTENANCE: {
     label: 'Maintenance',
     icon: Settings,
-    badgeClass:
-      'bg-amber-50 text-amber-700 border border-amber-200 shadow-sm',
+    badgeClass: 'bg-amber-50 text-amber-700 border border-amber-200 shadow-sm',
     dotClass: 'bg-amber-400',
     previewRing: 'ring-1 ring-amber-200/70',
   },
   UNKNOWN: {
     label: 'Unknown',
     icon: Camera,
-    badgeClass:
-      'bg-gray-100 text-gray-600 border border-gray-200 shadow-sm',
+    badgeClass: 'bg-gray-100 text-gray-600 border border-gray-200 shadow-sm',
     dotClass: 'bg-gray-400',
     previewRing: 'ring-1 ring-gray-200/70',
   },
@@ -316,12 +314,21 @@ export default function CCTVPage() {
                   className={`relative bg-gray-900 aspect-video overflow-hidden ${variant.previewRing}`}
                 >
                   {camera.status === 'ONLINE' && camera.streamUrl ? (
-                    <iframe
-                      src={camera.streamUrl}
-                      className='w-full h-full absolute inset-0'
-                      allow='autoplay; fullscreen; picture-in-picture'
-                      title={camera.name}
-                    />
+                    <div className='flex items-center justify-center h-full w-full bg-black'>
+                      <div className='flex items-center justify-center h-full w-full bg-black'>
+                        <iframe
+                          src={camera.streamUrl}
+                          className='h-full w-auto border-0'
+                          style={{
+                            aspectRatio: '16 / 9', // Sesuaikan dengan rasio CCTV Anda
+                            display: 'block',
+                          }}
+                          allow='autoplay; fullscreen; picture-in-picture'
+                          allowFullScreen
+                          scrolling='no'
+                        />
+                      </div>
+                    </div>
                   ) : (
                     <div className='absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-b from-slate-900/80 to-slate-800 text-white px-8 text-center'>
                       <Camera className='h-12 w-12 opacity-60 mb-3' />

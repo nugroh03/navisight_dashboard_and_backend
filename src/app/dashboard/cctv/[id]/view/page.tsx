@@ -1,6 +1,6 @@
 'use client';
 
-import { type CSSProperties, useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import {
@@ -27,10 +27,68 @@ export default function ViewCCTVPage() {
   const from = searchParams.get('from') || 'cctv';
   const backUrl = from === 'dashboard' ? '/dashboard' : '/dashboard/cctv';
   const iframeRef = useRef<HTMLIFrameElement>(null);
+  const playerContainerRef = useRef<HTMLDivElement>(null);
   const [hasError, setHasError] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
   const { data: camera, isLoading: cameraLoading } = useCCTVCamera(cameraId);
   const isAdmin = session?.user?.role === 'ADMINISTRATOR';
+
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      const fullscreenElement =
+        document.fullscreenElement ||
+        (document as any).webkitFullscreenElement ||
+        (document as any).mozFullScreenElement ||
+        (document as any).msFullscreenElement;
+
+      setIsFullscreen(fullscreenElement === playerContainerRef.current);
+    };
+
+    const events = [
+      'fullscreenchange',
+      'webkitfullscreenchange',
+      'mozfullscreenchange',
+      'MSFullscreenChange',
+    ];
+
+    events.forEach((eventName) =>
+      document.addEventListener(eventName, handleFullscreenChange)
+    );
+
+    return () => {
+      events.forEach((eventName) =>
+        document.removeEventListener(eventName, handleFullscreenChange)
+      );
+    };
+  }, []);
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia('(max-width: 640px)');
+
+    const handleMediaChange = (event: MediaQueryList | MediaQueryListEvent) => {
+      setIsMobile(
+        'matches' in event ? event.matches : (event as MediaQueryList).matches
+      );
+    };
+
+    handleMediaChange(mediaQuery);
+
+    if (typeof mediaQuery.addEventListener === 'function') {
+      mediaQuery.addEventListener('change', handleMediaChange);
+    } else {
+      mediaQuery.addListener(handleMediaChange);
+    }
+
+    return () => {
+      if (typeof mediaQuery.removeEventListener === 'function') {
+        mediaQuery.removeEventListener('change', handleMediaChange);
+      } else {
+        mediaQuery.removeListener(handleMediaChange);
+      }
+    };
+  }, []);
 
   const formatDateTime = (value?: Date | string | null) => {
     if (!value) return '-';
@@ -52,10 +110,8 @@ export default function ViewCCTVPage() {
   };
 
   const handleFullscreen = () => {
-    const element = iframeRef.current;
-    if (element?.requestFullscreen) {
-      element.requestFullscreen();
-    }
+    if (!camera?.streamUrl) return;
+    window.open(camera.streamUrl, '_blank', 'noopener,noreferrer');
   };
 
   if (cameraLoading) {
@@ -168,7 +224,12 @@ export default function ViewCCTVPage() {
         <div className='lg:col-span-2 space-y-4'>
           <div className='relative rounded-2xl overflow-hidden bg-neutral-900 shadow-2xl ring-1 ring-black/5'>
             {/* Video Container */}
-            <div className='relative w-full aspect-video bg-black flex items-center justify-center overflow-hidden group'>
+            <div
+              ref={playerContainerRef}
+              className={`relative w-full aspect-video bg-black flex items-center justify-center overflow-hidden group fullscreen-player${
+                isFullscreen ? ' fullscreen-active' : ''
+              }`}
+            >
               {camera.status !== 'ONLINE' ? (
                 <div className='flex flex-col items-center justify-center text-neutral-500 p-8 text-center'>
                   <WifiOff className='h-16 w-16 mb-4 opacity-50' />
@@ -188,20 +249,22 @@ export default function ViewCCTVPage() {
                 </div>
               ) : (
                 <>
-                  <iframe
-                    ref={iframeRef}
-                    src={camera.streamUrl}
-                    // Contain: tinggi mengikuti area hitam, lebar mengikuti tinggi (rasio CCTV umum 4:3)
-                    className='h-full w-auto border-0'
-                    style={{
-                      aspectRatio: '4 / 3',
-                      background: 'black',
-                      display: 'block',
-                    }}
-                    allow='autoplay; fullscreen; picture-in-picture'
-                    allowFullScreen
-                    scrolling='no'
-                  />
+                  <div className='flex items-center justify-center h-full w-full bg-black'>
+                    <div className='flex items-center justify-center h-full w-full bg-black'>
+                      <iframe
+                        ref={iframeRef}
+                        src={camera.streamUrl}
+                        className='h-full w-auto border-0'
+                        style={{
+                          aspectRatio: isMobile ? '16 / 9' : '4 / 3',
+                          display: 'block',
+                        }}
+                        // allow='autoplay; fullscreen; picture-in-picture'
+                        allowFullScreen
+                        scrolling='no'
+                      />
+                    </div>
+                  </div>
 
                   {/* Error Overlay */}
                   {hasError && (
