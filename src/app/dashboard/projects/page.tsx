@@ -9,8 +9,23 @@ import { APP_CONFIG } from '@/config/app';
 interface Project {
   id: string;
   name: string;
+  deviceId?: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+interface DeviceInfo {
+  deviceId: string | null;
+  isConnected: boolean;
+  lastReportedAt: string | null;
+  lastPosition: { latitude: number; longitude: number } | null;
+  connectedUsers: Array<{
+    id: string;
+    name: string | null;
+    email: string;
+    accountType: string;
+    role: string;
+  }>;
 }
 
 // API functions
@@ -40,16 +55,18 @@ const createProject = async (name: string): Promise<Project> => {
 const updateProject = async ({
   id,
   name,
+  deviceId,
 }: {
   id: string;
   name: string;
-}): Promise<Project> => {
+  deviceId?: string | null;
+}): Promise<Project> {
   const response = await fetch(`/api/projects/${id}`, {
     method: 'PUT',
     headers: {
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ name }),
+    body: JSON.stringify({ name, deviceId }),
   });
   if (!response.ok) {
     const error = await response.json();
@@ -67,12 +84,20 @@ const deleteProject = async (id: string): Promise<void> => {
     throw new Error(error.message || 'Failed to delete project');
   }
 };
-
+const fetchDeviceInfo = async (projectId: string): Promise<DeviceInfo> => {
+  const response = await fetch(`/api/projects/${projectId}/device-info`);
+  if (!response.ok) {
+    throw new Error('Failed to fetch device info');
+  }
+  return response.json();
+};
 export default function ProjectsPage() {
   const { data: session } = useSession();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
   const [projectName, setProjectName] = useState('');
+  const [deviceId, setDeviceId] = useState('');
+  const [deviceInfo, setDeviceInfo] = useState<DeviceInfo | null>(null);
   const [errors, setErrors] = useState<string[]>([]);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
 
@@ -125,13 +150,25 @@ export default function ProjectsPage() {
     },
   });
 
-  const handleOpenModal = (project?: Project) => {
+  const handleOpenModal = async (project?: Project) => {
     if (project) {
       setEditingProject(project);
       setProjectName(project.name);
+      setDeviceId(project.deviceId || '');
+      
+      // Fetch device info
+      try {
+        const info = await fetchDeviceInfo(project.id);
+        setDeviceInfo(info);
+      } catch (error) {
+        console.error('Failed to fetch device info:', error);
+        setDeviceInfo(null);
+      }
     } else {
       setEditingProject(null);
       setProjectName('');
+      setDeviceId('');
+      setDeviceInfo(null);
     }
     setErrors([]);
     setIsModalOpen(true);
@@ -141,6 +178,8 @@ export default function ProjectsPage() {
     setIsModalOpen(false);
     setEditingProject(null);
     setProjectName('');
+    setDeviceId('');
+    setDeviceInfo(null);
     setErrors([]);
   };
 
@@ -162,6 +201,7 @@ export default function ProjectsPage() {
       updateMutation.mutate({
         id: editingProject.id,
         name: projectName.trim(),
+        deviceId: deviceId.trim() || null,
       });
     } else {
       createMutation.mutate(projectName.trim());
@@ -364,6 +404,73 @@ export default function ProjectsPage() {
                     }
                   />
                 </div>
+                
+                {/* Device ID Field - only shown when editing */}
+                {editingProject && (
+                  <div>
+                    <label
+                      htmlFor='deviceId'
+                      className='block text-sm font-medium text-[var(--color-text)] mb-1'
+                    >
+                      Device ID
+                    </label>
+                    <input
+                      type='text'
+                      id='deviceId'
+                      value={deviceId}
+                      onChange={(e) => setDeviceId(e.target.value)}
+                      className='w-full px-3 py-2 border border-[var(--color-border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent'
+                      placeholder='Enter device ID (optional)'
+                      disabled={
+                        createMutation.isPending || updateMutation.isPending
+                      }
+                    />
+                    <p className='mt-1 text-xs text-[var(--color-muted)]'>
+                      Device ID dari aplikasi mobile yang terhubung
+                    </p>
+                    
+                    {/* Device Info */}
+                    {deviceInfo && (
+                      <div className='mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg'>
+                        <p className='text-xs font-semibold text-blue-900 mb-2'>
+                          Device Status
+                        </p>
+                        <div className='space-y-1 text-xs text-blue-800'>
+                          <p>
+                            <span className='font-medium'>Connected:</span>{' '}
+                            {deviceInfo.isConnected ? 'Yes' : 'No'}
+                          </p>
+                          {deviceInfo.lastReportedAt && (
+                            <p>
+                              <span className='font-medium'>Last Reported:</span>{' '}
+                              {new Date(deviceInfo.lastReportedAt).toLocaleString()}
+                            </p>
+                          )}
+                          {deviceInfo.connectedUsers.length > 0 && (
+                            <div className='mt-2'>
+                              <p className='font-medium mb-1'>Connected Users:</p>
+                              <ul className='space-y-1'>
+                                {deviceInfo.connectedUsers.map((user) => (
+                                  <li key={user.id} className='flex items-center justify-between'>
+                                    <span>
+                                      {user.name || user.email}
+                                      {' '}
+                                      <span className='text-blue-600'>({user.role})</span>
+                                    </span>
+                                    <span className='text-xs px-2 py-0.5 bg-blue-100 rounded'>
+                                      {user.accountType}
+                                    </span>
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+                
                 {errors.length > 0 && (
                   <div className='bg-red-50 border border-red-200 rounded-lg p-3'>
                     {errors.map((error, index) => (
