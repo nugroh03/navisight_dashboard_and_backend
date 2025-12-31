@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/auth/config';
 import { prisma } from '@/lib/prisma';
 import { detectStreamType } from '@/lib/stream-utils';
+import { getPublicOrigin } from '@/lib/http';
 
 const HLS_MIME = 'application/vnd.apple.mpegurl';
 
@@ -12,7 +13,8 @@ const rewritePlaylistUrls = (
   request: NextRequest,
   cameraId: string
 ) => {
-  const proxyBase = `${request.nextUrl.origin}/api/cctv/${cameraId}/stream`;
+  const origin = getPublicOrigin(request);
+  const proxyBase = `${origin}/api/cctv/${cameraId}/stream`;
   const lines = playlist.split(/\r?\n/);
 
   return lines
@@ -81,11 +83,11 @@ const proxyHlsStream = async (
 
   const headers = new Headers({
     'User-Agent': 'Navisight-CCTV-Proxy/1.0',
-    Accept: targetUrl.pathname.toLowerCase().endsWith('.m3u8')
+    'Accept': targetUrl.pathname.toLowerCase().endsWith('.m3u8')
       ? 'application/vnd.apple.mpegurl,application/x-mpegurl,*/*;q=0.1'
       : '*/*',
-    Referer: `${baseUrl.origin}/`,
-    Origin: baseUrl.origin,
+    'Referer': `${baseUrl.origin}/`,
+    'Origin': baseUrl.origin,
   });
 
   const upstream = await fetch(targetUrl.toString(), {
@@ -138,7 +140,12 @@ const proxyHlsStream = async (
       );
     }
 
-    const rewritten = rewritePlaylistUrls(playlist, targetUrl, request, cameraId);
+    const rewritten = rewritePlaylistUrls(
+      playlist,
+      targetUrl,
+      request,
+      cameraId
+    );
     responseHeaders.set('Content-Type', HLS_MIME);
     return new NextResponse(rewritten, {
       status: 200,
