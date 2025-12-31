@@ -215,6 +215,8 @@ export default function ViewCCTVPage() {
       hls.attachMedia(videoElement);
       console.log('[HLS] Loading source:', sourceUrl);
       hls.loadSource(sourceUrl);
+      setHasError(false);
+      setErrorMessage('');
 
       hls.on(Hls.Events.ERROR, (_, data) => {
         console.error('HLS error', data);
@@ -243,6 +245,10 @@ export default function ViewCCTVPage() {
               hls.destroy();
               hlsInstanceRef.current = null;
           }
+        } else {
+          // Non-fatal error, biarkan player mencoba recover tanpa menahan overlay
+          setHasError(false);
+          setErrorMessage('');
         }
       });
 
@@ -259,6 +265,16 @@ export default function ViewCCTVPage() {
             setHasError(true);
             setErrorMessage('Player tidak dapat otomatis memutar stream.');
           });
+      });
+
+      hls.on(Hls.Events.FRAG_BUFFERED, () => {
+        setHasError(false);
+        setErrorMessage('');
+      });
+
+      hls.on(Hls.Events.LEVEL_LOADED, () => {
+        setHasError(false);
+        setErrorMessage('');
       });
 
       return () => {
@@ -461,6 +477,10 @@ export default function ViewCCTVPage() {
                           autoPlay
                           playsInline
                           crossOrigin='anonymous'
+                          onPlaying={() => {
+                            setHasError(false);
+                            setErrorMessage('');
+                          }}
                           onLoadedData={handleVideoLoaded}
                           onError={handleVideoError}
                         />

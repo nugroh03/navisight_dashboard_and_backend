@@ -376,6 +376,7 @@ function CardPreviewPlayer({ url, cameraId }: CardPreviewPlayerProps) {
       hlsRef.current = hls;
       hls.attachMedia(video);
       hls.loadSource(displayUrl);
+      setError(null);
       hls.on(Hls.Events.MANIFEST_PARSED, () => {
         video
           .play()
@@ -388,9 +389,20 @@ function CardPreviewPlayer({ url, cameraId }: CardPreviewPlayerProps) {
             setError('Tidak dapat memutar HLS.');
           });
       });
+      hls.on(Hls.Events.LEVEL_LOADED, () => {
+        setError(null);
+      });
+      hls.on(Hls.Events.FRAG_BUFFERED, () => {
+        setError(null);
+      });
       hls.on(Hls.Events.ERROR, (_, data) => {
+        // Hanya tampilkan error jika fatal; non-fatal akan dicoba recovery
+        if (!data?.fatal) {
+          return;
+        }
+
         setError('Gagal memuat HLS.');
-        if (data?.fatal && hlsRef.current) {
+        if (hlsRef.current) {
           switch (data.type) {
             case Hls.ErrorTypes.NETWORK_ERROR:
               hlsRef.current.startLoad();
@@ -437,7 +449,13 @@ function CardPreviewPlayer({ url, cameraId }: CardPreviewPlayerProps) {
           autoPlay
           controls={false}
           crossOrigin='anonymous'
-          onLoadedData={() => setLoading(false)}
+          onPlaying={() => setError(null)}
+          onTimeUpdate={() => setError(null)}
+          onLoadedData={() => {
+            setLoading(false);
+            setError(null);
+          }}
+          onCanPlay={() => setError(null)}
           onError={() => {
             setError('Tidak dapat memutar HLS.');
             setLoading(false);

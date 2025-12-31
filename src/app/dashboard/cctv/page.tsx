@@ -453,6 +453,7 @@ function CameraPreview({ url, cameraId }: PreviewProps) {
   const [streamType, setStreamType] = useState<StreamType>('iframe');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
   const [timestamp] = useState(() => Date.now());
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -463,6 +464,7 @@ function CameraPreview({ url, cameraId }: PreviewProps) {
     setStreamType(nextType);
     setLoading(true);
     setError(null);
+    setIsPlaying(false);
     setReloadKey((prev) => prev + 1);
   }, [url]);
 
@@ -515,25 +517,30 @@ function CameraPreview({ url, cameraId }: PreviewProps) {
           .then(() => {
             setLoading(false);
             setError(null);
+            setIsPlaying(true);
           })
           .catch(() => {
             setLoading(false);
             setError('Tidak dapat memutar HLS.');
+            setIsPlaying(false);
           });
       });
       hls.on(Hls.Events.ERROR, (_, data) => {
-        setError('Gagal memuat HLS.');
-        if (data?.fatal && hlsRef.current) {
-          switch (data.type) {
-            case Hls.ErrorTypes.NETWORK_ERROR:
-              hlsRef.current.startLoad();
-              break;
-            case Hls.ErrorTypes.MEDIA_ERROR:
-              hlsRef.current.recoverMediaError();
-              break;
-            default:
-              hlsRef.current.destroy();
-              hlsRef.current = null;
+        if (data?.fatal) {
+          setError('Gagal memuat HLS.');
+          setIsPlaying(false);
+          if (hlsRef.current) {
+            switch (data.type) {
+              case Hls.ErrorTypes.NETWORK_ERROR:
+                hlsRef.current.startLoad();
+                break;
+              case Hls.ErrorTypes.MEDIA_ERROR:
+                hlsRef.current.recoverMediaError();
+                break;
+              default:
+                hlsRef.current.destroy();
+                hlsRef.current = null;
+            }
           }
         }
       });
@@ -547,10 +554,12 @@ function CameraPreview({ url, cameraId }: PreviewProps) {
         .then(() => {
           setLoading(false);
           setError(null);
+          setIsPlaying(true);
         })
         .catch(() => {
           setLoading(false);
           setError('Tidak dapat memutar HLS.');
+          setIsPlaying(false);
         });
       return cleanup;
     }
@@ -570,11 +579,17 @@ function CameraPreview({ url, cameraId }: PreviewProps) {
           autoPlay
           controls={false}
           crossOrigin='anonymous'
-          onLoadedData={() => setLoading(false)}
+          onLoadedData={() => {
+            setLoading(false);
+            setIsPlaying(true);
+          }}
           onError={() => {
             setError('Tidak dapat memutar HLS.');
             setLoading(false);
+            setIsPlaying(false);
           }}
+          onPlay={() => setIsPlaying(true)}
+          onPause={() => setIsPlaying(false)}
         />
       ) : isMjpeg ? (
         // eslint-disable-next-line @next/next/no-img-element
@@ -582,10 +597,14 @@ function CameraPreview({ url, cameraId }: PreviewProps) {
           src={`${displayUrl}?t=${timestamp}`}
           alt='Preview'
           className='w-full h-full object-cover'
-          onLoad={() => setLoading(false)}
+          onLoad={() => {
+            setLoading(false);
+            setIsPlaying(true);
+          }}
           onError={() => {
             setError('Gagal memuat preview.');
             setLoading(false);
+            setIsPlaying(false);
           }}
         />
       ) : (
@@ -596,10 +615,14 @@ function CameraPreview({ url, cameraId }: PreviewProps) {
           allow='autoplay; fullscreen; picture-in-picture'
           allowFullScreen
           loading='lazy'
-          onLoad={() => setLoading(false)}
+          onLoad={() => {
+            setLoading(false);
+            setIsPlaying(true);
+          }}
           onError={() => {
             setError('Gagal memuat preview.');
             setLoading(false);
+            setIsPlaying(false);
           }}
         />
       )}
@@ -611,7 +634,7 @@ function CameraPreview({ url, cameraId }: PreviewProps) {
         </div>
       )}
 
-      {error && (
+      {error && !isPlaying && (
         <div className='absolute inset-0 flex items-center justify-center bg-black/60 text-white text-xs px-3 text-center'>
           {error}
         </div>
