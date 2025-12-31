@@ -529,27 +529,6 @@ export default function ViewCCTVPage() {
                 </>
               )}
             </div>
-
-            {/* Player Controls Bar */}
-            <div className='bg-neutral-800/50 backdrop-blur border-t border-white/5 p-3'>
-              <div className='flex items-center justify-end gap-1'>
-                <button
-                  onClick={handleRefresh}
-                  className='p-2 text-neutral-400 hover:text-white hover:bg-white/5 rounded-lg transition-colors'
-                  title='Refresh Stream'
-                >
-                  <RotateCcw className='h-4 w-4' />
-                </button>
-                <div className='w-px h-4 bg-white/10 mx-1'></div>
-                <button
-                  onClick={handleFullscreen}
-                  className='p-2 text-neutral-400 hover:text-white hover:bg-white/5 rounded-lg transition-colors'
-                  title='Fullscreen'
-                >
-                  <Maximize className='h-4 w-4' />
-                </button>
-              </div>
-            </div>
           </div>
         </div>
       </div>
