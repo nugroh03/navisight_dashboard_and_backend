@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import {
   Card,
@@ -25,6 +25,8 @@ import {
 } from 'lucide-react';
 import type { CCTV } from '@/types';
 import { RoleName } from '@prisma/client';
+import Hls from 'hls.js';
+import { detectStreamType, type StreamType } from '@/lib/stream-utils';
 
 interface CCTVCardProps {
   camera: CCTV;
@@ -217,6 +219,10 @@ interface CameraPreviewProps {
 function CameraPreview({ url, cameraId, status }: CameraPreviewProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [streamType, setStreamType] = useState<StreamType>('iframe');
+  const [reloadKey, setReloadKey] = useState(0);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const hlsRef = useRef<Hls | null>(null);
   const [timestamp] = useState(() => Date.now());
 
   if (!url || status !== 'ONLINE') {
@@ -232,11 +238,105 @@ function CameraPreview({ url, cameraId, status }: CameraPreviewProps) {
     );
   }
 
-  const isMjpeg =
-    /mjpg|mjpeg|faststream\.jpg|video\.cgi|action=stream|mjpegstream/i.test(
-      url
-    );
-  const displayUrl = isMjpeg ? `/api/cctv/${cameraId}/snapshot` : url;
+  useEffect(() => {
+    const nextType = detectStreamType(url);
+    setStreamType(nextType);
+    setError(null);
+    setLoading(true);
+    setReloadKey((prev) => prev + 1);
+  }, [url]);
+
+  const isMjpeg = streamType === 'mjpeg';
+  const isHls = streamType === 'hls';
+  const displayUrl = isHls ? `/api/cctv/${cameraId}/stream` : url;
+
+  useEffect(() => {
+    if (streamType !== 'hls' || !displayUrl) {
+      if (hlsRef.current) {
+        hlsRef.current.destroy();
+        hlsRef.current = null;
+      }
+      return;
+    }
+
+    const video = videoRef.current;
+    if (!video) return;
+
+    const cleanup = () => {
+      if (hlsRef.current) {
+        hlsRef.current.destroy();
+        hlsRef.current = null;
+      }
+      video.removeAttribute('src');
+      video.load();
+    };
+
+    const nativeSupport =
+      video.canPlayType('application/vnd.apple.mpegurl') ||
+      video.canPlayType('application/x-mpegurl');
+
+    if (!Hls.isSupported() && nativeSupport !== 'probably') {
+      setError('HLS tidak didukung browser ini.');
+      setLoading(false);
+      return cleanup;
+    }
+
+    if (Hls.isSupported()) {
+      const hls = new Hls({
+        enableWorker: true,
+        lowLatencyMode: false,
+      });
+      hlsRef.current = hls;
+      hls.attachMedia(video);
+      hls.loadSource(displayUrl);
+      hls.on(Hls.Events.MANIFEST_PARSED, () => {
+        video
+          .play()
+          .then(() => {
+            setLoading(false);
+            setError(null);
+          })
+          .catch(() => {
+            setLoading(false);
+            setError('Tidak dapat memutar HLS.');
+          });
+      });
+      hls.on(Hls.Events.ERROR, (_, data) => {
+        setError('Gagal memuat HLS.');
+        if (data?.fatal && hlsRef.current) {
+          switch (data.type) {
+            case Hls.ErrorTypes.NETWORK_ERROR:
+              hlsRef.current.startLoad();
+              break;
+            case Hls.ErrorTypes.MEDIA_ERROR:
+              hlsRef.current.recoverMediaError();
+              break;
+            default:
+              hlsRef.current.destroy();
+              hlsRef.current = null;
+          }
+        }
+      });
+      return cleanup;
+    }
+
+    if (nativeSupport === 'probably') {
+      video.src = displayUrl;
+      video
+        .play()
+        .then(() => {
+          setLoading(false);
+          setError(null);
+        })
+        .catch(() => {
+          setLoading(false);
+          setError('Tidak dapat memutar HLS.');
+        });
+      return cleanup;
+    }
+
+    return cleanup;
+  }, [displayUrl, streamType, reloadKey]);
 
   // Some CCTV endpoints render an HTML page with its own margins/scrollbars.
   // We can't style inside a cross-origin iframe, so we slightly overscan the
@@ -245,7 +345,23 @@ function CameraPreview({ url, cameraId, status }: CameraPreviewProps) {
 
   return (
     <div className='relative w-full h-full bg-black overflow-hidden'>
-      {isMjpeg ? (
+      {streamType === 'hls' ? (
+        <video
+          key={`hls-preview-${reloadKey}`}
+          ref={videoRef}
+          className='w-full h-full object-cover'
+          muted
+          playsInline
+          autoPlay
+          controls={false}
+          crossOrigin='anonymous'
+          onLoadedData={() => setLoading(false)}
+          onError={() => {
+            setError('Tidak dapat memutar HLS.');
+            setLoading(false);
+          }}
+        />
+      ) : isMjpeg ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
           src={`${displayUrl}?t=${timestamp}`}
@@ -259,6 +375,7 @@ function CameraPreview({ url, cameraId, status }: CameraPreviewProps) {
         />
       ) : (
         <iframe
+          key={`iframe-preview-${reloadKey}`}
           src={displayUrl}
           className='border-0 absolute'
           style={{

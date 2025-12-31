@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   Plus,
   Search,
@@ -24,6 +24,8 @@ import type { CCTV } from '@/types';
 import Link from 'next/link';
 import { CCTVDeleteModal } from '@/components/cctv/cctv-delete-modal';
 import { useSession } from 'next-auth/react';
+import Hls from 'hls.js';
+import { detectStreamType, type StreamType } from '@/lib/stream-utils';
 
 const STATUS_VARIANTS = {
   ONLINE: {
@@ -314,21 +316,10 @@ export default function CCTVPage() {
                   className={`relative bg-gray-900 aspect-video overflow-hidden ${variant.previewRing}`}
                 >
                   {camera.status === 'ONLINE' && camera.streamUrl ? (
-                    <div className='flex items-center justify-center h-full w-full bg-black'>
-                      <div className='flex items-center justify-center h-full w-full bg-black'>
-                        <iframe
-                          src={camera.streamUrl}
-                          className='h-full w-auto border-0'
-                          style={{
-                            aspectRatio: '16 / 9', // Sesuaikan dengan rasio CCTV Anda
-                            display: 'block',
-                          }}
-                          allow='autoplay; fullscreen; picture-in-picture'
-                          allowFullScreen
-                          scrolling='no'
-                        />
-                      </div>
-                    </div>
+                    <CameraPreview
+                      cameraId={camera.id}
+                      url={camera.streamUrl}
+                    />
                   ) : (
                     <div className='absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-b from-slate-900/80 to-slate-800 text-white px-8 text-center'>
                       <Camera className='h-12 w-12 opacity-60 mb-3' />
@@ -448,6 +439,182 @@ export default function CCTVPage() {
             setSelectedCamera(null);
           }}
         />
+      )}
+    </div>
+  );
+}
+
+type PreviewProps = {
+  url?: string | null;
+  cameraId: string;
+};
+
+function CameraPreview({ url, cameraId }: PreviewProps) {
+  const [streamType, setStreamType] = useState<StreamType>('iframe');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
+  const [timestamp] = useState(() => Date.now());
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const hlsRef = useRef<Hls | null>(null);
+
+  useEffect(() => {
+    const nextType = detectStreamType(url);
+    setStreamType(nextType);
+    setLoading(true);
+    setError(null);
+    setReloadKey((prev) => prev + 1);
+  }, [url]);
+
+  const isHls = streamType === 'hls';
+  const isMjpeg = streamType === 'mjpeg';
+  const displayUrl = isHls ? `/api/cctv/${cameraId}/stream` : url || '';
+
+  useEffect(() => {
+    if (!isHls || !displayUrl) {
+      if (hlsRef.current) {
+        hlsRef.current.destroy();
+        hlsRef.current = null;
+      }
+      return;
+    }
+
+    const video = videoRef.current;
+    if (!video) return;
+
+    const cleanup = () => {
+      if (hlsRef.current) {
+        hlsRef.current.destroy();
+        hlsRef.current = null;
+      }
+      video.removeAttribute('src');
+      video.load();
+    };
+
+    const nativeSupport =
+      video.canPlayType('application/vnd.apple.mpegurl') ||
+      video.canPlayType('application/x-mpegurl');
+
+    if (!Hls.isSupported() && nativeSupport !== 'probably') {
+      setError('HLS tidak didukung di browser ini.');
+      setLoading(false);
+      return cleanup;
+    }
+
+    if (Hls.isSupported()) {
+      const hls = new Hls({
+        enableWorker: true,
+        lowLatencyMode: false,
+      });
+      hlsRef.current = hls;
+      hls.attachMedia(video);
+      hls.loadSource(displayUrl);
+      hls.on(Hls.Events.MANIFEST_PARSED, () => {
+        video
+          .play()
+          .then(() => {
+            setLoading(false);
+            setError(null);
+          })
+          .catch(() => {
+            setLoading(false);
+            setError('Tidak dapat memutar HLS.');
+          });
+      });
+      hls.on(Hls.Events.ERROR, (_, data) => {
+        setError('Gagal memuat HLS.');
+        if (data?.fatal && hlsRef.current) {
+          switch (data.type) {
+            case Hls.ErrorTypes.NETWORK_ERROR:
+              hlsRef.current.startLoad();
+              break;
+            case Hls.ErrorTypes.MEDIA_ERROR:
+              hlsRef.current.recoverMediaError();
+              break;
+            default:
+              hlsRef.current.destroy();
+              hlsRef.current = null;
+          }
+        }
+      });
+      return cleanup;
+    }
+
+    if (nativeSupport === 'probably') {
+      video.src = displayUrl;
+      video
+        .play()
+        .then(() => {
+          setLoading(false);
+          setError(null);
+        })
+        .catch(() => {
+          setLoading(false);
+          setError('Tidak dapat memutar HLS.');
+        });
+      return cleanup;
+    }
+
+    return cleanup;
+  }, [displayUrl, isHls, reloadKey]);
+
+  return (
+    <div className='absolute inset-0 bg-black'>
+      {isHls ? (
+        <video
+          key={`hls-card-${reloadKey}`}
+          ref={videoRef}
+          className='w-full h-full object-cover'
+          muted
+          playsInline
+          autoPlay
+          controls={false}
+          crossOrigin='anonymous'
+          onLoadedData={() => setLoading(false)}
+          onError={() => {
+            setError('Tidak dapat memutar HLS.');
+            setLoading(false);
+          }}
+        />
+      ) : isMjpeg ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={`${displayUrl}?t=${timestamp}`}
+          alt='Preview'
+          className='w-full h-full object-cover'
+          onLoad={() => setLoading(false)}
+          onError={() => {
+            setError('Gagal memuat preview.');
+            setLoading(false);
+          }}
+        />
+      ) : (
+        <iframe
+          key={`iframe-card-${reloadKey}`}
+          src={displayUrl}
+          className='w-full h-full border-0'
+          allow='autoplay; fullscreen; picture-in-picture'
+          allowFullScreen
+          loading='lazy'
+          onLoad={() => setLoading(false)}
+          onError={() => {
+            setError('Gagal memuat preview.');
+            setLoading(false);
+          }}
+        />
+      )}
+
+      {loading && !error && (
+        <div className='absolute inset-0 flex flex-col items-center justify-center bg-black/50 text-white text-xs gap-2'>
+          <span className='h-4 w-4 border-2 border-white/50 border-t-transparent rounded-full animate-spin'></span>
+          <span>Loading preview...</span>
+        </div>
+      )}
+
+      {error && (
+        <div className='absolute inset-0 flex items-center justify-center bg-black/60 text-white text-xs px-3 text-center'>
+          {error}
+        </div>
       )}
     </div>
   );

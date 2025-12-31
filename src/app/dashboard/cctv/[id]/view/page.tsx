@@ -17,6 +17,11 @@ import {
 } from 'lucide-react';
 import { useCCTVCamera } from '@/hooks/use-cctv';
 import Link from 'next/link';
+import Hls from 'hls.js';
+import { detectStreamType, type StreamType } from '@/lib/stream-utils';
+
+const withCacheBuster = (url: string) =>
+  `${url}${url.includes('?') ? '&' : '?'}cb=${Date.now()}`;
 
 export default function ViewCCTVPage() {
   const router = useRouter();
@@ -27,11 +32,16 @@ export default function ViewCCTVPage() {
   const from = searchParams.get('from') || 'cctv';
   const backUrl = from === 'dashboard' ? '/dashboard' : '/dashboard/cctv';
   const iframeRef = useRef<HTMLIFrameElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const hlsInstanceRef = useRef<Hls | null>(null);
   const playerContainerRef = useRef<HTMLDivElement>(null);
   const [hasError, setHasError] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [streamType, setStreamType] = useState<StreamType>('iframe');
+  const [hlsReloadKey, setHlsReloadKey] = useState(0);
+  const [mjpegReloadKey, setMjpegReloadKey] = useState(0);
   const { data: camera, isLoading: cameraLoading } = useCCTVCamera(cameraId);
   const isAdmin = session?.user?.role === 'ADMINISTRATOR';
 
@@ -104,14 +114,204 @@ export default function ViewCCTVPage() {
     setHasError(false);
     setErrorMessage('');
 
-    if (iframeRef.current) {
-      iframeRef.current.src = iframeRef.current.src;
+    if (streamType === 'hls') {
+      if (hlsInstanceRef.current) {
+        hlsInstanceRef.current.destroy();
+        hlsInstanceRef.current = null;
+      }
+      if (videoRef.current) {
+        videoRef.current.pause();
+        videoRef.current.removeAttribute('src');
+        videoRef.current.load();
+      }
+      setHlsReloadKey((prev) => prev + 1);
+      return;
+    }
+
+    if (streamType === 'mjpeg') {
+      setMjpegReloadKey((prev) => prev + 1);
+      return;
+    }
+
+    if (iframeRef.current && camera?.streamUrl) {
+      iframeRef.current.src = withCacheBuster(camera.streamUrl);
     }
   };
 
   const handleFullscreen = () => {
     if (!camera?.streamUrl) return;
     window.open(camera.streamUrl, '_blank', 'noopener,noreferrer');
+  };
+
+  useEffect(() => {
+    if (!camera?.streamUrl) {
+      setStreamType('iframe');
+      if (hlsInstanceRef.current) {
+        hlsInstanceRef.current.destroy();
+        hlsInstanceRef.current = null;
+      }
+      return;
+    }
+
+    const detectedType = detectStreamType(camera.streamUrl);
+    setStreamType(detectedType);
+    setHasError(false);
+    setErrorMessage('');
+
+    if (detectedType !== 'hls' && hlsInstanceRef.current) {
+      hlsInstanceRef.current.destroy();
+      hlsInstanceRef.current = null;
+    }
+  }, [camera?.streamUrl]);
+
+  useEffect(() => {
+    if (streamType !== 'hls' || !camera?.streamUrl) {
+      return;
+    }
+
+    const videoElement = videoRef.current;
+    if (!videoElement) {
+      return;
+    }
+
+    const sourceUrl =
+      streamType === 'hls' && camera?.id
+        ? `/api/cctv/${camera.id}/stream`
+        : camera?.streamUrl;
+
+    if (!sourceUrl) {
+      setHasError(true);
+      setErrorMessage('Stream HLS tidak tersedia.');
+      return;
+    }
+
+    setHasError(false);
+    setErrorMessage('');
+
+    const cleanupVideoElement = () => {
+      videoElement.pause();
+      videoElement.removeAttribute('src');
+      videoElement.load();
+    };
+
+    const nativeSupportLevel =
+      videoElement.canPlayType('application/vnd.apple.mpegurl') ||
+      videoElement.canPlayType('application/x-mpegurl');
+    const canUseNative = nativeSupportLevel === 'probably';
+
+    if (Hls.isSupported()) {
+      console.log('[HLS] Using hls.js library');
+      const hls = new Hls({
+        debug: true,
+        enableWorker: true,
+        lowLatencyMode: false,
+        backBufferLength: 90,
+        xhrSetup: (xhr: any) => {
+          xhr.withCredentials = false;
+        },
+      });
+      hlsInstanceRef.current = hls;
+
+      hls.attachMedia(videoElement);
+      console.log('[HLS] Loading source:', sourceUrl);
+      hls.loadSource(sourceUrl);
+
+      hls.on(Hls.Events.ERROR, (_, data) => {
+        console.error('HLS error', data);
+        let message =
+          data?.type === Hls.ErrorTypes.NETWORK_ERROR
+            ? 'Jaringan bermasalah saat memuat stream HLS.'
+            : 'Player tidak dapat memutar stream HLS.';
+
+        if (data?.details === 'manifestParsingError') {
+          message =
+            'Manifest HLS tidak valid atau tidak diawali #EXTM3U (file bisa kedaluwarsa atau salah).';
+        }
+
+        setHasError(true);
+        setErrorMessage(message);
+
+        if (data?.fatal) {
+          switch (data.type) {
+            case Hls.ErrorTypes.NETWORK_ERROR:
+              hls.startLoad();
+              break;
+            case Hls.ErrorTypes.MEDIA_ERROR:
+              hls.recoverMediaError();
+              break;
+            default:
+              hls.destroy();
+              hlsInstanceRef.current = null;
+          }
+        }
+      });
+
+      hls.on(Hls.Events.MANIFEST_PARSED, () => {
+        console.log('[HLS] Manifest parsed, starting playback');
+        videoElement
+          .play()
+          .then(() => {
+            console.log('[HLS] Playback started successfully');
+            setHasError(false);
+          })
+          .catch((error) => {
+            console.error('[HLS] Autoplay error', error);
+            setHasError(true);
+            setErrorMessage('Player tidak dapat otomatis memutar stream.');
+          });
+      });
+
+      return () => {
+        hls.destroy();
+        hlsInstanceRef.current = null;
+        cleanupVideoElement();
+      };
+    }
+
+    if (canUseNative) {
+      console.log('[HLS] Using native HLS support');
+      videoElement.src = sourceUrl;
+      videoElement
+        .play()
+        .then(() => {
+          console.log('[HLS] Native playback started');
+          setHasError(false);
+        })
+        .catch((error) => {
+          console.error('[HLS] Native playback error', error);
+          setHasError(true);
+          setErrorMessage('Gagal memutar stream HLS.');
+        });
+
+      return () => {
+        cleanupVideoElement();
+      };
+    }
+
+    setHasError(true);
+    setErrorMessage(
+      'Browser tidak mendukung pemutaran HLS. Coba gunakan browser berbeda.'
+    );
+  }, [camera?.streamUrl, camera?.id, streamType, hlsReloadKey]);
+
+  const handleVideoLoaded = () => {
+    setHasError(false);
+    setErrorMessage('');
+  };
+
+  const handleVideoError = () => {
+    setHasError(true);
+    setErrorMessage('Player tidak dapat memutar stream HLS.');
+  };
+
+  const handleMjpegLoaded = () => {
+    setHasError(false);
+    setErrorMessage('');
+  };
+
+  const handleMjpegError = () => {
+    setHasError(true);
+    setErrorMessage('Player tidak dapat memutar stream MJPEG.');
   };
 
   if (cameraLoading) {
@@ -251,18 +451,42 @@ export default function ViewCCTVPage() {
                 <>
                   <div className='flex items-center justify-center h-full w-full bg-black'>
                     <div className='flex items-center justify-center h-full w-full bg-black'>
-                      <iframe
-                        ref={iframeRef}
-                        src={camera.streamUrl}
-                        className='h-full w-auto border-0'
-                        style={{
-                          aspectRatio: isMobile ? '16 / 9' : '4 / 3',
-                          display: 'block',
-                        }}
-                        // allow='autoplay; fullscreen; picture-in-picture'
-                        allowFullScreen
-                        scrolling='no'
-                      />
+                      {streamType === 'hls' ? (
+                        <video
+                          key={`hls-player-${hlsReloadKey}`}
+                          ref={videoRef}
+                          className='h-full w-full object-contain bg-black'
+                          controls
+                          muted
+                          autoPlay
+                          playsInline
+                          crossOrigin='anonymous'
+                          onLoadedData={handleVideoLoaded}
+                          onError={handleVideoError}
+                        />
+                      ) : streamType === 'mjpeg' ? (
+                        <img
+                          key={`mjpeg-player-${mjpegReloadKey}`}
+                          src={camera.streamUrl}
+                          alt={camera.name}
+                          className='h-full w-full object-contain bg-black select-none'
+                          draggable={false}
+                          onLoad={handleMjpegLoaded}
+                          onError={handleMjpegError}
+                        />
+                      ) : (
+                        <iframe
+                          ref={iframeRef}
+                          src={camera.streamUrl}
+                          className='h-full w-auto border-0'
+                          style={{
+                            aspectRatio: isMobile ? '16 / 9' : '4 / 3',
+                            display: 'block',
+                          }}
+                          allowFullScreen
+                          scrolling='no'
+                        />
+                      )}
                     </div>
                   </div>
 
