@@ -1,8 +1,13 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { ChevronDown, MapPin, RefreshCw } from 'lucide-react';
+import type {
+  Icon as LeafletIcon,
+  Map as LeafletMap,
+  Marker as LeafletMarker,
+} from 'leaflet';
 
 const DEFAULT_CENTER = { lat: -6.2, lng: 106.816666 };
 
@@ -56,8 +61,8 @@ const buildOsmEmbedUrl = (
   center: { lat: number; lng: number },
   showMarker: boolean
 ) => {
-  const latOffset = showMarker ? 0.05 : 4;
-  const lngOffset = showMarker ? 0.08 : 6;
+  const latOffset = showMarker ? 0.005 : 4;
+  const lngOffset = showMarker ? 0.008 : 6;
   const bbox = [
     center.lng - lngOffset,
     center.lat - latOffset,
@@ -89,6 +94,8 @@ export default function MapsClient() {
   } = useQuery({
     queryKey: ['map-projects'],
     queryFn: fetchProjects,
+    refetchInterval: 5000,
+    refetchIntervalInBackground: true,
     select: (data) =>
       data.map(
         (project): ProjectLocation => ({
@@ -147,12 +154,15 @@ export default function MapsClient() {
     return DEFAULT_CENTER;
   }, [selectedProject]);
 
-  const mapZoom = hasLocation ? 13 : 5;
-  const mapSrc = useMemo(
-    () => buildOsmEmbedUrl(center, Boolean(hasLocation)),
-    [center, hasLocation]
+  const mapZoom = hasLocation ? 14 : 5;
+  // const mapSrc = useMemo(
+  //   () => buildOsmEmbedUrl(center, Boolean(hasLocation)),
+  //   [center, hasLocation]
+  // );
+  const mapLink = useMemo(
+    () => buildOsmLink(center, mapZoom),
+    [center, mapZoom]
   );
-  const mapLink = useMemo(() => buildOsmLink(center, mapZoom), [center, mapZoom]);
   const reportedAtText = useMemo(() => {
     if (!selectedProject?.lastReportedAt) {
       return '-';
@@ -163,6 +173,92 @@ export default function MapsClient() {
     }
     return reportedAt.toLocaleString('id-ID');
   }, [selectedProject?.lastReportedAt]);
+
+  const mapContainerRef = useRef<HTMLDivElement | null>(null);
+  const mapRef = useRef<LeafletMap | null>(null);
+  const markerRef = useRef<LeafletMarker | null>(null);
+  const iconRef = useRef<LeafletIcon | null>(null);
+  const leafletRef = useRef<typeof import('leaflet') | null>(null);
+  const [isMapReady, setIsMapReady] = useState(false);
+
+  useEffect(() => {
+    if (!mapContainerRef.current || mapRef.current) {
+      return;
+    }
+
+    let isMounted = true;
+
+    const initMap = async () => {
+      const L = await import('leaflet');
+      if (!isMounted || !mapContainerRef.current || mapRef.current) {
+        return;
+      }
+
+      leafletRef.current = L;
+      iconRef.current = L.icon({
+        iconUrl: '/icons/ship-icon.png',
+        // iconUrl: '/icons/ship-marker.svg',
+        iconSize: [50, 50],
+        iconAnchor: [18, 18],
+      });
+
+      const map = L.map(mapContainerRef.current, {
+        zoomControl: true,
+      });
+
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '&copy; OpenStreetMap contributors',
+      }).addTo(map);
+
+      mapRef.current = map;
+      setIsMapReady(true);
+    };
+
+    void initMap();
+
+    return () => {
+      isMounted = false;
+      if (mapRef.current) {
+        mapRef.current.remove();
+      }
+      mapRef.current = null;
+      markerRef.current = null;
+      iconRef.current = null;
+      leafletRef.current = null;
+    };
+  }, []);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    const L = leafletRef.current;
+    if (!map || !L || !isMapReady) {
+      return;
+    }
+
+    map.setView([center.lat, center.lng], mapZoom);
+
+    if (hasLocation) {
+      if (!markerRef.current) {
+        const icon =
+          iconRef.current ??
+          L.icon({
+            iconUrl: '/icons/ship-marker.svg',
+            iconSize: [36, 36],
+            iconAnchor: [18, 18],
+          });
+        iconRef.current = icon;
+        markerRef.current = L.marker([center.lat, center.lng], {
+          icon,
+        }).addTo(map);
+      } else {
+        markerRef.current.setLatLng([center.lat, center.lng]);
+      }
+    } else if (markerRef.current) {
+      markerRef.current.remove();
+      markerRef.current = null;
+    }
+  }, [center.lat, center.lng, hasLocation, isMapReady, mapZoom]);
 
   return (
     <div className='space-y-6'>
@@ -272,8 +368,12 @@ export default function MapsClient() {
                 </span>
               </div>
               <div className='flex items-center justify-between'>
-                <span className='text-[var(--color-muted)]'>Update Terakhir</span>
-                <span className='font-semibold text-right'>{reportedAtText}</span>
+                <span className='text-[var(--color-muted)]'>
+                  Update Terakhir
+                </span>
+                <span className='font-semibold text-right'>
+                  {reportedAtText}
+                </span>
               </div>
             </div>
           </div>
@@ -307,12 +407,15 @@ export default function MapsClient() {
           </div>
 
           <div className='relative mt-4 h-[520px] w-full overflow-hidden rounded-xl border border-[var(--color-border)] bg-slate-100 lg:h-[600px]'>
+            <div ref={mapContainerRef} className='h-full w-full' />
+            {/* Legacy iframe embed (kept for quick rollback)
             <iframe
               title='OpenStreetMap'
               src={mapSrc}
               className='h-full w-full'
               loading='lazy'
             />
+            */}
             {!hasLocation && (
               <div className='absolute inset-0 flex items-center justify-center bg-white/70 text-sm font-semibold text-[var(--color-muted)]'>
                 Lokasi kapal belum tersedia

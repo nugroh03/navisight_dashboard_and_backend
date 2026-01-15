@@ -60,7 +60,7 @@ const updateProject = async ({
   id: string;
   name: string;
   deviceId?: string | null;
-}): Promise<Project> {
+}): Promise<Project> => {
   const response = await fetch(`/api/projects/${id}`, {
     method: 'PUT',
     headers: {
