@@ -6,6 +6,9 @@ declare module "next-auth" {
     user?: DefaultSession["user"] & {
       id?: string;
       role?: RoleName | string;
+      accountType?: string;
+      canAccessMobile?: boolean;
+      canAccessDashboard?: boolean;
     };
   }
 
@@ -13,6 +16,9 @@ declare module "next-auth" {
     role?: {
       name: RoleName;
     };
+    accountType?: string;
+    canAccessMobile?: boolean;
+    canAccessDashboard?: boolean;
   }
 }
 
@@ -20,5 +26,8 @@ declare module "next-auth/jwt" {
   interface JWT {
     id?: string;
     role?: RoleName | string;
+    accountType?: string;
+    canAccessMobile?: boolean;
+    canAccessDashboard?: boolean;
   }
 }

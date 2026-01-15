@@ -61,7 +61,7 @@ export async function getAuthUser(req: NextRequest): Promise<AuthUser | null> {
   // Fallback to NextAuth session (for dashboard)
   const session = await getServerSession(authOptions);
 
-  if (session?.user) {
+  if (session?.user?.id && session.user.email) {
     return {
       id: session.user.id,
       email: session.user.email,
