@@ -11,6 +11,7 @@ const navItems = [
   { label: "Message", href: "/dashboard/message", section: "main" },
   { label: "Users", href: "/dashboard/users", section: "manage", allowedRoles: ["ADMINISTRATOR", "CLIENT"] },
   { label: "Projects", href: "/dashboard/projects", section: "manage", allowedRoles: ["ADMINISTRATOR"] },
+  { label: "Ports", href: "/dashboard/ports", section: "manage", allowedRoles: ["ADMINISTRATOR"] },
 ];
 
 export function SidebarNav() {
