@@ -100,7 +100,7 @@ export default function DashboardPage() {
 
   // Fetch CCTVs filtered by selected project
   const { data: cameras = [], isLoading } = useCCTV(
-    projectFilter !== 'ALL' ? projectFilter : undefined
+    projectFilter !== 'ALL' ? projectFilter : undefined,
   );
 
   return (
@@ -177,7 +177,7 @@ export default function DashboardPage() {
             </p>
           </div>
         ) : (
-          <div className='grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3'>
+          <div className='grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-2'>
             {cameras.slice(0, 6).map((camera) => {
               const statusStyles = getStatusStyles(camera.status);
               const lastActivityText = formatLastActivity(camera.lastActivity);
@@ -209,7 +209,10 @@ export default function DashboardPage() {
                     className={`relative bg-gray-900 aspect-video overflow-hidden ${statusStyles.previewRing}`}
                   >
                     {camera.status === 'ONLINE' && camera.streamUrl ? (
-                      <CardPreviewPlayer cameraId={camera.id} url={camera.streamUrl} />
+                      <CardPreviewPlayer
+                        cameraId={camera.id}
+                        url={camera.streamUrl}
+                      />
                     ) : (
                       <div className='absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-b from-slate-800 to-slate-900 text-white px-4 text-center'>
                         <Camera className='h-12 w-12 opacity-60 mb-3' />
