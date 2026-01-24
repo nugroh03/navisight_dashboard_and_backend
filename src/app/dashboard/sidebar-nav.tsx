@@ -8,7 +8,7 @@ const navItems = [
   { label: "Dashboard", href: "/dashboard", section: "main" },
   { label: "CCTV", href: "/dashboard/cctv", section: "main" },
   { label: "Maps", href: "/dashboard/maps", section: "main" },
-  { label: "Message", href: "/dashboard/message", section: "main" },
+  // { label: "Message", href: "/dashboard/message", section: "main" },
   { label: "Users", href: "/dashboard/users", section: "manage", allowedRoles: ["ADMINISTRATOR", "CLIENT"] },
   { label: "Projects", href: "/dashboard/projects", section: "manage", allowedRoles: ["ADMINISTRATOR"] },
   { label: "Ports", href: "/dashboard/ports", section: "manage", allowedRoles: ["ADMINISTRATOR"] },

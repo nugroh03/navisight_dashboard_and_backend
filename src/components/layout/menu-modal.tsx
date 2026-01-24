@@ -42,15 +42,15 @@ export function MenuModal({ isOpen, onClose }: MenuModalProps) {
       label: 'Maps',
       href: '/dashboard/maps',
       color: 'bg-green-50 text-green-600',
-      comingSoon: true,
+      comingSoon: false,
     },
-    {
-      icon: MessageSquare,
-      label: 'Message',
-      href: '/dashboard/message',
-      color: 'bg-purple-50 text-purple-600',
-      comingSoon: true,
-    },
+    // {
+    //   icon: MessageSquare,
+    //   label: 'Message',
+    //   href: '/dashboard/message',
+    //   color: 'bg-purple-50 text-purple-600',
+    //   comingSoon: true,
+    // },
     {
       icon: Users,
       label: 'Users',
