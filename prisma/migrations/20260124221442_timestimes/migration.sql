@@ -1,0 +1,45 @@
+/*
+  Warnings:
+
+  - Added the required column `updatedAt` to the `Account` table without a default value. This is not possible if the table is not empty.
+
+*/
+-- AlterTable
+ALTER TABLE "Account" ADD COLUMN     "createdAt" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ADD COLUMN     "updatedAt" TIMESTAMPTZ(6) NOT NULL;
+
+-- AlterTable
+ALTER TABLE "cameras" ALTER COLUMN "createdAt" SET DATA TYPE TIMESTAMPTZ(6),
+ALTER COLUMN "updatedAt" SET DATA TYPE TIMESTAMPTZ(6);
+
+-- AlterTable
+ALTER TABLE "message" ALTER COLUMN "createdAt" SET DATA TYPE TIMESTAMPTZ(6),
+ALTER COLUMN "updatedAt" SET DATA TYPE TIMESTAMPTZ(6);
+
+-- AlterTable
+ALTER TABLE "message_channel" ALTER COLUMN "createdAt" SET DATA TYPE TIMESTAMPTZ(6),
+ALTER COLUMN "updatedAt" SET DATA TYPE TIMESTAMPTZ(6);
+
+-- AlterTable
+ALTER TABLE "message_reads" ALTER COLUMN "createdAt" SET DATA TYPE TIMESTAMPTZ(6),
+ALTER COLUMN "updatedAt" SET DATA TYPE TIMESTAMPTZ(6);
+
+-- AlterTable
+ALTER TABLE "ports" ALTER COLUMN "createdAt" SET DATA TYPE TIMESTAMPTZ(6),
+ALTER COLUMN "updatedAt" SET DATA TYPE TIMESTAMPTZ(6);
+
+-- AlterTable
+ALTER TABLE "position_reports" ALTER COLUMN "createdAt" SET DATA TYPE TIMESTAMPTZ(6),
+ALTER COLUMN "updatedAt" SET DATA TYPE TIMESTAMPTZ(6);
+
+-- AlterTable
+ALTER TABLE "project_users" ALTER COLUMN "createdAt" SET DATA TYPE TIMESTAMPTZ(6),
+ALTER COLUMN "updatedAt" SET DATA TYPE TIMESTAMPTZ(6);
+
+-- AlterTable
+ALTER TABLE "projects" ALTER COLUMN "createdAt" SET DATA TYPE TIMESTAMPTZ(6),
+ALTER COLUMN "updatedAt" SET DATA TYPE TIMESTAMPTZ(6);
+
+-- AlterTable
+ALTER TABLE "users" ALTER COLUMN "createdAt" SET DATA TYPE TIMESTAMPTZ(6),
+ALTER COLUMN "updatedAt" SET DATA TYPE TIMESTAMPTZ(6);
