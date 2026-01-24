@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
-import { requireAuth } from '@/lib/auth-helpers';
+
+const GPS_API_KEY = process.env.GPS_API_KEY;
 
 const updateLocationSchema = z.object({
   projectId: z.string().uuid('Invalid project ID'),
@@ -11,26 +12,48 @@ const updateLocationSchema = z.object({
   heading: z.number().min(0).max(360).optional().default(0),
 });
 
+function getRequestApiKey(req: NextRequest): string | null {
+  const headerKey = req.headers.get('x-api-key');
+
+  if (headerKey) {
+    return headerKey.trim();
+  }
+
+  const authHeader = req.headers.get('authorization');
+
+  if (!authHeader) {
+    return null;
+  }
+
+  if (authHeader.toLowerCase().startsWith('apikey ')) {
+    return authHeader.substring(7).trim();
+  }
+
+  return null;
+}
+
 /**
- * POST /api/mobile/projects/update-location
- * Update project location from mobile device
+ * POST /api/location-update
+ * Update project location from GPS device (API key auth)
  */
 export async function POST(req: NextRequest) {
   try {
     console.log('[Update Location] Request received');
 
-    const authResult = await requireAuth(req);
-
-    if ('error' in authResult) {
-      console.log('[Update Location] Auth failed:', authResult.error);
+    if (!GPS_API_KEY) {
+      console.error('[Update Location] GPS_API_KEY is not configured');
       return NextResponse.json(
-        { error: authResult.error },
-        { status: authResult.status },
+        { error: 'Server misconfiguration' },
+        { status: 500 },
       );
     }
 
-    const { user } = authResult;
-    console.log('[Update Location] User authenticated:', user.email);
+    const providedApiKey = getRequestApiKey(req);
+
+    if (!providedApiKey || providedApiKey !== GPS_API_KEY) {
+      console.log('[Update Location] API key invalid');
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
 
     // Parse request body
     let body;
@@ -64,36 +87,26 @@ export async function POST(req: NextRequest) {
     const { projectId, latitude, longitude, speed, heading } = validation.data;
     console.log('[Update Location] Updating location for project:', projectId);
 
-    // Check if user has access to this project
-    const projectUser = await prisma.projectUser.findFirst({
+    // Ensure project exists and is active
+    const project = await prisma.project.findFirst({
       where: {
-        projectId,
-        userId: user.id,
+        id: projectId,
+        deletedAt: null,
       },
-      include: {
-        project: {
-          select: {
-            id: true,
-            name: true,
-            deviceId: true,
-            deletedAt: true,
-          },
-        },
+      select: {
+        id: true,
+        name: true,
+        deviceId: true,
+        deletedAt: true,
       },
     });
 
-    if (!projectUser || projectUser.project.deletedAt) {
-      console.log('[Update Location] Project not found or access denied');
-      return NextResponse.json(
-        { error: 'Project not found or access denied' },
-        { status: 404 },
-      );
+    if (!project) {
+      console.log('[Update Location] Project not found or inactive');
+      return NextResponse.json({ error: 'Project not found' }, { status: 404 });
     }
 
-    console.log(
-      '[Update Location] User has access to project:',
-      projectUser.project.name,
-    );
+    console.log('[Update Location] Project found:', project.name);
 
     const now = new Date();
 
