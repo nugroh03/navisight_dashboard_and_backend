@@ -120,3 +120,31 @@ export function useDeleteCCTV() {
     },
   });
 }
+
+// Reorder CCTV cameras per project (admin only)
+export function useReorderCCTV() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (data: { projectId: string; orderedIds: string[] }) => {
+      const response = await fetch('/api/cctv/reorder', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to reorder CCTV cameras');
+      }
+
+      return response.json();
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['cctv'] });
+      queryClient.invalidateQueries({
+        queryKey: ['cctv', variables.projectId],
+      });
+    },
+  });
+}

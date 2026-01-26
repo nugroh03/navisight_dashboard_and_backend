@@ -35,6 +35,9 @@ export async function GET(request: NextRequest) {
     // Get query parameters
     const { searchParams } = new URL(request.url);
     const projectIdFilter = searchParams.get('projectId');
+    const orderBy = projectIdFilter
+      ? [{ sortOrder: 'asc' as const }, { createdAt: 'asc' as const }]
+      : [{ createdAt: 'desc' as const }];
 
     // Build where clause based on user role
     const whereClause: any = {};
@@ -77,9 +80,7 @@ export async function GET(request: NextRequest) {
           },
         },
       },
-      orderBy: {
-        createdAt: 'desc',
-      },
+      orderBy,
     });
 
     // Transform to match CCTV interface
@@ -94,6 +95,7 @@ export async function GET(request: NextRequest) {
         | 'ONLINE'
         | 'OFFLINE'
         | 'MAINTENANCE',
+      sortOrder: camera.sortOrder,
       project: camera.project,
       createdAt: camera.createdAt,
       updatedAt: camera.updatedAt,
@@ -133,6 +135,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const lastCamera = await prisma.camera.findFirst({
+      where: { projectId: validatedData.projectId },
+      orderBy: [{ sortOrder: 'desc' }, { createdAt: 'desc' }],
+      select: { sortOrder: true },
+    });
+    const nextSortOrder = (lastCamera?.sortOrder ?? 0) + 1;
+
     const camera = await prisma.camera.create({
       data: {
         name: validatedData.name,
@@ -141,6 +150,7 @@ export async function POST(request: NextRequest) {
         urlCamera: validatedData.streamUrl,
         status: validatedData.status,
         projectId: validatedData.projectId,
+        sortOrder: nextSortOrder,
       },
       include: {
         project: {
@@ -164,6 +174,7 @@ export async function POST(request: NextRequest) {
         | 'ONLINE'
         | 'OFFLINE'
         | 'MAINTENANCE',
+      sortOrder: camera.sortOrder,
       project: camera.project,
       createdAt: camera.createdAt,
       updatedAt: camera.updatedAt,

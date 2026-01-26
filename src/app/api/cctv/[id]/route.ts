@@ -58,6 +58,7 @@ export async function GET(
         | 'ONLINE'
         | 'OFFLINE'
         | 'MAINTENANCE',
+      sortOrder: camera.sortOrder,
       project: camera.project,
       createdAt: camera.createdAt,
       updatedAt: camera.updatedAt,
@@ -153,6 +154,7 @@ export async function PATCH(
         | 'ONLINE'
         | 'OFFLINE'
         | 'MAINTENANCE',
+      sortOrder: camera.sortOrder,
       project: camera.project,
       createdAt: camera.createdAt,
       updatedAt: camera.updatedAt,

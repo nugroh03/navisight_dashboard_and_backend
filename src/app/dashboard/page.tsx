@@ -91,12 +91,24 @@ const formatLastActivity = (lastActivity?: Date | string | null) => {
 export default function DashboardPage() {
   const { data: session } = useSession();
   const [projectFilter, setProjectFilter] = useState<string>('ALL');
+  const hasSetDefaultProjectRef = useRef(false);
 
   // Check if user is WORKER
   const isWorker = session?.user?.role === 'WORKER';
 
   // Fetch projects for filter dropdown
   const { data: projects } = useProjects();
+
+  useEffect(() => {
+    if (hasSetDefaultProjectRef.current) {
+      return;
+    }
+
+    if (projects && projects.length > 0 && projectFilter === 'ALL') {
+      setProjectFilter(projects[0].id);
+      hasSetDefaultProjectRef.current = true;
+    }
+  }, [projects, projectFilter]);
 
   // Fetch CCTVs filtered by selected project
   const { data: cameras = [], isLoading } = useCCTV(

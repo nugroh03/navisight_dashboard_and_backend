@@ -42,6 +42,7 @@ export interface CCTV {
   projectId: string;
   streamUrl: string;
   status: 'ONLINE' | 'OFFLINE' | 'MAINTENANCE';
+  sortOrder: number;
   project?: Project;
   createdAt: Date;
   updatedAt: Date;

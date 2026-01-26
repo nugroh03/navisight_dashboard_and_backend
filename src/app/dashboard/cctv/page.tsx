@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type DragEvent } from 'react';
 import {
   Plus,
   Search,
@@ -11,13 +11,14 @@ import {
   Eye,
   Edit,
   Trash2,
+  GripVertical,
   FolderKanban,
   ChevronDown,
   Filter,
   MapPin,
   Building2,
 } from 'lucide-react';
-import { useCCTV } from '@/hooks/use-cctv';
+import { useCCTV, useReorderCCTV } from '@/hooks/use-cctv';
 import { useProjects } from '@/hooks/use-projects';
 import { RoleName } from '@prisma/client';
 import type { CCTV } from '@/types';
@@ -69,6 +70,12 @@ export default function CCTVPage() {
   const [projectFilter, setProjectFilter] = useState<string>('ALL');
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [selectedCamera, setSelectedCamera] = useState<CCTV | null>(null);
+  const [orderedCameras, setOrderedCameras] = useState<CCTV[]>([]);
+  const [draggedCameraId, setDraggedCameraId] = useState<string | null>(null);
+  const [reorderEnabled, setReorderEnabled] = useState(false);
+  const initialOrderRef = useRef<string[]>([]);
+  const orderedCamerasRef = useRef<CCTV[]>([]);
+  const hasSetDefaultProjectRef = useRef(false);
 
   // Fetch projects for filter dropdown
   const { data: projects } = useProjects();
@@ -79,6 +86,7 @@ export default function CCTVPage() {
     isLoading,
     error,
   } = useCCTV(projectFilter !== 'ALL' ? projectFilter : undefined);
+  const reorderCCTV = useReorderCCTV();
 
   const user = {
     id: session?.user?.id || '',
@@ -89,16 +97,120 @@ export default function CCTVPage() {
   };
   const isWorker = user.role === RoleName.WORKER;
 
-  const filteredCameras =
-    cameras?.filter((camera: CCTV) => {
+  useEffect(() => {
+    if (hasSetDefaultProjectRef.current) {
+      return;
+    }
+
+    if (projects && projects.length > 0 && projectFilter === 'ALL') {
+      setProjectFilter(projects[0].id);
+      hasSetDefaultProjectRef.current = true;
+    }
+  }, [projects, projectFilter]);
+
+  const hasActiveFilters =
+    searchTerm.trim().length > 0 || statusFilter !== 'ALL';
+  const canReorderBase =
+    user.role === RoleName.ADMINISTRATOR &&
+    projectFilter !== 'ALL' &&
+    !hasActiveFilters;
+  const canReorder = canReorderBase && reorderEnabled;
+
+  const filteredCameras = useMemo(() => {
+    if (!cameras) {
+      return [];
+    }
+
+    return cameras.filter((camera: CCTV) => {
       const matchesSearch =
         camera.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         camera.location?.toLowerCase().includes(searchTerm.toLowerCase());
       const matchesStatus =
         statusFilter === 'ALL' || camera.status === statusFilter;
       return matchesSearch && matchesStatus;
-    }) || [];
+    });
+  }, [cameras, searchTerm, statusFilter]);
 
+  useEffect(() => {
+    setOrderedCameras(filteredCameras);
+    initialOrderRef.current = filteredCameras.map((camera) => camera.id);
+  }, [filteredCameras, canReorder]);
+
+  useEffect(() => {
+    orderedCamerasRef.current = orderedCameras;
+  }, [orderedCameras]);
+
+  const displayedCameras = canReorder ? orderedCameras : filteredCameras;
+  const isSavingOrder = reorderCCTV.isPending;
+
+  const arraysEqual = (a: string[], b: string[]) =>
+    a.length === b.length && a.every((value, index) => value === b[index]);
+
+  const moveCamera = (list: CCTV[], fromId: string, toId: string) => {
+    const fromIndex = list.findIndex((camera) => camera.id === fromId);
+    const toIndex = list.findIndex((camera) => camera.id === toId);
+
+    if (fromIndex === -1 || toIndex === -1) {
+      return list;
+    }
+
+    const next = list.slice();
+    const [moved] = next.splice(fromIndex, 1);
+    next.splice(toIndex, 0, moved);
+    return next;
+  };
+
+  const handleDragStart =
+    (cameraId: string) => (event: DragEvent<HTMLElement>) => {
+      if (!canReorder || isSavingOrder) {
+        return;
+      }
+
+      event.dataTransfer.effectAllowed = 'move';
+      event.dataTransfer.setData('text/plain', cameraId);
+      setDraggedCameraId(cameraId);
+    };
+
+  const handleDragOver =
+    (targetId: string) => (event: DragEvent<HTMLElement>) => {
+      if (!canReorder || isSavingOrder || !draggedCameraId) {
+        return;
+      }
+
+      if (draggedCameraId === targetId) {
+        return;
+      }
+
+      event.preventDefault();
+      setOrderedCameras((prev) =>
+        moveCamera(prev, draggedCameraId, targetId)
+      );
+    };
+
+  const handleDragEnd = async () => {
+    if (!canReorder) {
+      setDraggedCameraId(null);
+      return;
+    }
+
+    setDraggedCameraId(null);
+
+    const currentOrder = orderedCamerasRef.current.map((camera) => camera.id);
+    if (arraysEqual(currentOrder, initialOrderRef.current)) {
+      return;
+    }
+
+    try {
+      await reorderCCTV.mutateAsync({
+        projectId: projectFilter,
+        orderedIds: currentOrder,
+      });
+      initialOrderRef.current = currentOrder;
+    } catch (error) {
+      console.error('Failed to reorder cameras:', error);
+      setOrderedCameras(filteredCameras);
+    }
+  };
   if (isLoading) {
     return (
       <div className='flex items-center justify-center h-64'>
@@ -198,6 +310,25 @@ export default function CCTVPage() {
             </div>
 
             {user.role === RoleName.ADMINISTRATOR && (
+              <label className='inline-flex items-center gap-3 rounded-full border border-[var(--color-border)] bg-white px-3 py-2 text-sm font-medium text-[var(--color-text)]'>
+                <span className='text-xs font-semibold uppercase tracking-wide text-[var(--color-muted)]'>
+                  Urutkan
+                </span>
+                <span className='relative inline-flex h-6 w-11 items-center'>
+                  <input
+                    type='checkbox'
+                    className='peer sr-only'
+                    checked={reorderEnabled}
+                    onChange={(event) => setReorderEnabled(event.target.checked)}
+                    disabled={!canReorderBase}
+                  />
+                  <span className='absolute h-full w-full rounded-full bg-slate-200 transition-colors peer-checked:bg-[var(--color-primary-strong)] peer-disabled:bg-slate-100'></span>
+                  <span className='absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform peer-checked:translate-x-5 peer-disabled:bg-slate-200'></span>
+                </span>
+              </label>
+            )}
+
+            {user.role === RoleName.ADMINISTRATOR && (
               <Link
                 href='/dashboard/cctv/create'
                 className='btn-primary inline-flex items-center gap-2'
@@ -208,6 +339,17 @@ export default function CCTVPage() {
             )}
           </div>
         </div>
+        {user.role === RoleName.ADMINISTRATOR && (
+          <div className='mt-4 text-xs text-[var(--color-muted)]'>
+            {canReorderBase
+              ? reorderEnabled
+                ? isSavingOrder
+                  ? 'Menyimpan urutan kamera...'
+                  : 'Drag kartu kamera untuk mengubah urutan dalam project ini.'
+                : 'Aktifkan switch "Urutkan" untuk mengubah urutan kamera.'
+              : 'Urutan kamera hanya bisa diatur saat memilih satu project dan tanpa filter.'}
+          </div>
+        )}
       </div>
 
       {/* Statistics */}
@@ -273,7 +415,7 @@ export default function CCTVPage() {
       </div>
 
       {/* Cameras Grid */}
-      {filteredCameras.length === 0 ? (
+      {displayedCameras.length === 0 ? (
         <div className='card p-12 text-center'>
           <div className='w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4'>
             <Camera className='h-12 w-12 text-[var(--color-muted)]' />
@@ -300,16 +442,23 @@ export default function CCTVPage() {
         </div>
       ) : (
         <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6'>
-          {filteredCameras.map((camera: CCTV) => {
+          {displayedCameras.map((camera: CCTV) => {
             const variant =
               STATUS_VARIANTS[camera.status as StatusKey] ||
               STATUS_VARIANTS.UNKNOWN;
             const StatusIcon = variant.icon;
+            const isDragging = draggedCameraId === camera.id;
 
             return (
               <article
                 key={camera.id}
-                className='card p-0 overflow-hidden flex flex-col'
+                className={`card p-0 overflow-hidden flex flex-col ${
+                  isDragging
+                    ? 'opacity-70 ring-2 ring-[var(--color-primary)]/30'
+                    : ''
+                }`}
+                onDragOver={handleDragOver(camera.id)}
+                onDrop={(event) => event.preventDefault()}
               >
                 {/* Camera Preview */}
                 <div
@@ -361,6 +510,16 @@ export default function CCTVPage() {
                         {camera.description || 'Tidak ada deskripsi'}
                       </p>
                     </div>
+                    {canReorder && (
+                      <div
+                        className='text-[var(--color-muted)] mt-1 cursor-grab'
+                        draggable={!isSavingOrder}
+                        onDragStart={handleDragStart(camera.id)}
+                        onDragEnd={handleDragEnd}
+                      >
+                        <GripVertical className='h-4 w-4' />
+                      </div>
+                    )}
                   </div>
 
                   <div className='grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm'>
