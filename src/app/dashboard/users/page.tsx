@@ -17,6 +17,26 @@ type UserRow = {
   projects: ProjectOption[];
 };
 
+const EMAIL_DOMAIN = 'translautjatim.com';
+
+const normalizeEmailInput = (value: string) => {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return '';
+  }
+  const localPart = trimmed.split('@')[0].trim();
+  return localPart ? `${localPart}@${EMAIL_DOMAIN}` : '';
+};
+
+const getEmailLocalPart = (email: string) => {
+  const trimmed = email.trim();
+  const domainSuffix = `@${EMAIL_DOMAIN}`;
+  if (trimmed.toLowerCase().endsWith(domainSuffix)) {
+    return trimmed.slice(0, -domainSuffix.length);
+  }
+  return trimmed;
+};
+
 const fetchUsers = async (): Promise<UserRow[]> => {
   const response = await fetch('/api/users');
   if (!response.ok) {
@@ -181,7 +201,7 @@ export default function UsersPage() {
       setEditingUser(user);
       setEditingUserId(user.id ?? null);
       setFormName(user.name ?? '');
-      setFormEmail(user.email);
+      setFormEmail(getEmailLocalPart(user.email));
       setFormPassword('');
       setFormRole((user.role as 'CLIENT' | 'WORKER') ?? 'CLIENT');
       setFormProjectIds(user.projects.map((project) => project.id));
@@ -240,6 +260,12 @@ export default function UsersPage() {
       return;
     }
 
+    const normalizedEmail = normalizeEmailInput(formEmail);
+    if (!normalizedEmail) {
+      setErrors(['Format email tidak valid.']);
+      return;
+    }
+
     if (!editingUser && !formPassword.trim()) {
       setErrors(['Password wajib diisi untuk user baru.']);
       return;
@@ -252,7 +278,7 @@ export default function UsersPage() {
 
     const payload = {
       name: formName.trim() ? formName.trim() : undefined,
-      email: formEmail.trim(),
+      email: normalizedEmail,
       role: formRole,
       projectIds: formProjectIds,
       ...(formPassword.trim() ? { password: formPassword.trim() } : {}),
@@ -433,17 +459,24 @@ export default function UsersPage() {
                 <label className='block text-sm font-medium text-[var(--color-text)] mb-1'>
                   Email
                 </label>
-                <input
-                  type='email'
-                  value={formEmail}
-                  onChange={(event) => setFormEmail(event.target.value)}
-                  className='w-full px-3 py-2 border border-[var(--color-border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent'
-                  placeholder='email@contoh.com'
-                  required
-                  disabled={
-                    createMutation.isPending || updateMutation.isPending
-                  }
-                />
+                <div className='flex items-center'>
+                  <input
+                    type='text'
+                    value={formEmail}
+                    onChange={(event) =>
+                      setFormEmail(event.target.value.split('@')[0])
+                    }
+                    className='flex-1 px-3 py-2 border border-[var(--color-border)] rounded-l-lg focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent'
+                    placeholder='andre'
+                    required
+                    disabled={
+                      createMutation.isPending || updateMutation.isPending
+                    }
+                  />
+                  <span className='px-3 py-2 border border-l-0 border-[var(--color-border)] rounded-r-lg bg-[#f8fafc] text-sm text-[var(--color-muted)]'>
+                    @{EMAIL_DOMAIN}
+                  </span>
+                </div>
               </div>
 
               <div>

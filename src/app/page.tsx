@@ -4,6 +4,20 @@ import { FormEvent, useState } from 'react';
 import { signIn } from 'next-auth/react';
 import { APP_CONFIG } from '@/config/app';
 
+const EMAIL_DOMAIN = 'translautjatim.com';
+
+const normalizeEmailInput = (value: string) => {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return '';
+  }
+  const localPart = trimmed.split('@')[0].trim();
+  if (trimmed.includes('@')) {
+    return trimmed;
+  }
+  return localPart ? `${localPart}@${EMAIL_DOMAIN}` : '';
+};
+
 const highlights = [
   {
     title: 'Real-time Fleet',
@@ -24,9 +38,16 @@ export default function Home() {
     setLoading(true);
     setError('');
 
+    const normalizedEmail = normalizeEmailInput(email);
+    if (!normalizedEmail) {
+      setError('Email wajib diisi.');
+      setLoading(false);
+      return;
+    }
+
     const response = await signIn('credentials', {
       redirect: false,
-      email,
+      email: normalizedEmail,
       password,
       callbackUrl: '/dashboard',
     });
@@ -102,17 +123,21 @@ export default function Home() {
                 >
                   Email
                 </label>
-                <div className='flex items-center gap-3 rounded-xl border border-[var(--color-border)] bg-[#f8fafc] px-4 py-3 transition focus-within:border-[var(--color-primary-strong)] focus-within:shadow-[0_12px_34px_rgba(15,106,216,0.12)]'>
-                  <span className='text-[var(--color-muted)]'>@</span>
+                <div className='flex items-center rounded-xl border border-[var(--color-border)] bg-[#f8fafc] px-4 py-3 transition focus-within:border-[var(--color-primary-strong)] focus-within:shadow-[0_12px_34px_rgba(15,106,216,0.12)]'>
                   <input
                     id='email'
-                    type='email'
+                    type='text'
                     required
                     className='input-field'
-                    placeholder='usertest@gmail.com'
+                    placeholder='andre'
                     value={email}
                     onChange={(event) => setEmail(event.target.value)}
                   />
+                  {!email.includes('@') && (
+                    <span className='ml-3 text-[var(--color-muted)]'>
+                      @{EMAIL_DOMAIN}
+                    </span>
+                  )}
                 </div>
               </div>
 

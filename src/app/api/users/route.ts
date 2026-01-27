@@ -9,9 +9,29 @@ import { z } from 'zod';
 const allowedRoles = ['CLIENT', 'WORKER'] as const;
 type AllowedRole = (typeof allowedRoles)[number];
 
+const EMAIL_DOMAIN = 'translautjatim.com';
+
+const normalizeEmailInput = (value: string) => {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return '';
+  }
+  const localPart = trimmed.split('@')[0].trim();
+  return localPart ? `${localPart}@${EMAIL_DOMAIN}` : '';
+};
+
+const emailSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .transform((value) => normalizeEmailInput(value))
+  .refine((value) => z.string().email().safeParse(value).success, {
+    message: 'Format email tidak valid.',
+  });
+
 const createUserSchema = z.object({
   name: z.string().trim().min(2).optional(),
-  email: z.string().email(),
+  email: emailSchema,
   password: z.string().min(6),
   role: z.enum(allowedRoles),
   projectIds: z.array(z.string().uuid()).optional(),

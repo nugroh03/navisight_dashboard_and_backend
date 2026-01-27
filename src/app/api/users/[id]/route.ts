@@ -8,10 +8,30 @@ import { z } from 'zod';
 
 const allowedRoles = ['CLIENT', 'WORKER'] as const;
 
+const EMAIL_DOMAIN = 'translautjatim.com';
+
+const normalizeEmailInput = (value: string) => {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return '';
+  }
+  const localPart = trimmed.split('@')[0].trim();
+  return localPart ? `${localPart}@${EMAIL_DOMAIN}` : '';
+};
+
+const emailSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .transform((value) => normalizeEmailInput(value))
+  .refine((value) => z.string().email().safeParse(value).success, {
+    message: 'Format email tidak valid.',
+  });
+
 const updateUserSchema = z.object({
   id: z.string().uuid().optional(),
   name: z.string().trim().min(2).optional(),
-  email: z.string().email().optional(),
+  email: emailSchema.optional(),
   password: z.string().min(6).optional(),
   role: z.enum(allowedRoles).optional(),
   projectIds: z.array(z.string().uuid()).optional(),
