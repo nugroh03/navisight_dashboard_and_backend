@@ -83,7 +83,7 @@ const updateUser = async (
     password?: string;
     role?: 'CLIENT' | 'WORKER';
     projectIds?: string[];
-  }
+  },
 ) => {
   if (!id) {
     throw new Error('User id tidak ditemukan.');
@@ -192,7 +192,7 @@ export default function UsersPage() {
 
   const projectMap = useMemo(() => {
     return new Map(
-      (projectOptions ?? []).map((project) => [project.id, project])
+      (projectOptions ?? []).map((project) => [project.id, project]),
     );
   }, [projectOptions]);
 
@@ -628,8 +628,8 @@ export default function UsersPage() {
                       ? 'Updating...'
                       : 'Creating...'
                     : editingUser
-                    ? 'Update User'
-                    : 'Create User'}
+                      ? 'Update User'
+                      : 'Create User'}
                 </button>
               </div>
             </form>
