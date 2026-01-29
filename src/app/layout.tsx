@@ -13,6 +13,9 @@ const manrope = Manrope({
 export const metadata: Metadata = {
   title: APP_CONFIG.name,
   description: 'Integrated surveillance system dashboard',
+  icons: {
+    icon: '/trans_laut_logo.png',
+  },
 };
 
 export default function RootLayout({

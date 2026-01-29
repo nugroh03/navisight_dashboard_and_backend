@@ -3,6 +3,7 @@
 import { FormEvent, useState } from 'react';
 import { signIn } from 'next-auth/react';
 import { APP_CONFIG } from '@/config/app';
+import { Eye, EyeOff } from 'lucide-react';
 
 const EMAIL_DOMAIN = 'translautjatim.com';
 
@@ -21,6 +22,7 @@ const normalizeEmailInput = (value: string) => {
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -91,7 +93,7 @@ export default function LoginPage() {
                     className='input-field'
                     placeholder='andre'
                     value={email}
-                    onChange={(event) => setEmail(event.target.value)}
+                    onChange={(event) => setEmail(event.target.value.toLowerCase())}
                   />
                   {!email.includes('@') && (
                     <span className='ml-3 text-[var(--color-muted)]'>
@@ -108,17 +110,25 @@ export default function LoginPage() {
                 >
                   Password
                 </label>
-                <div className='flex items-center gap-3 rounded-xl border border-[var(--color-border)] bg-[#f8fafc] px-4 py-3 transition focus-within:border-[var(--color-primary-strong)] focus-within:shadow-[0_12px_34px_rgba(15,106,216,0.12)]'>
+                <div className='flex items-center gap-3 rounded-xl border border-[var(--color-border)] bg-[#f8fafc] px-4 py-3 transition focus-within:border-[var(--color-primary-strong)] focus-within:shadow-[0_12px_34px_rgba(15,106,216,0.12)] relative'>
                   <span className='text-[var(--color-muted)]'>***</span>
                   <input
                     id='password'
-                    type='password'
+                    type={showPassword ? 'text' : 'password'}
                     required
-                    className='input-field'
+                    className='input-field flex-1'
                     placeholder='Masukkan password'
                     value={password}
                     onChange={(event) => setPassword(event.target.value)}
                   />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="text-slate-400 hover:text-slate-600 focus:outline-none"
+                    tabIndex={-1}
+                  >
+                    {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                  </button>
                 </div>
               </div>
 

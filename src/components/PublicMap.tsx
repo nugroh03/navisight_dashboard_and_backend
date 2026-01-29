@@ -175,7 +175,7 @@ export default function PublicMap({ apiKey }: { apiKey: string }) {
   }, [ships, isMapReady]);
 
   return (
-    <div className='relative w-full h-screen bg-slate-100 overflow-hidden'>
+    <div className='relative w-full h-full bg-slate-100 overflow-hidden'>
       {/* Map Container */}
       <div ref={mapContainerRef} className='absolute inset-0 z-0' />
       

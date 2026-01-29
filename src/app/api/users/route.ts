@@ -17,7 +17,7 @@ const normalizeEmailInput = (value: string) => {
     return '';
   }
   const localPart = trimmed.split('@')[0].trim();
-  return localPart ? `${localPart}@${EMAIL_DOMAIN}` : '';
+  return localPart ? `${localPart.toLowerCase()}@${EMAIL_DOMAIN}` : '';
 };
 
 const emailSchema = z
