@@ -1,17 +1,8 @@
 import { prisma } from '@/lib/prisma';
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 
-export async function GET(req: NextRequest) {
+export async function GET() {
   try {
-    const apiKey = req.headers.get('x-api-key');
-
-    if (!apiKey || apiKey !== process.env.MAPS_API_KEY) {
-      return NextResponse.json(
-        { message: 'Unauthorized: Invalid API Key' },
-        { status: 401 }
-      );
-    }
-
     // Fetch all active projects (ships)
     const projects = await prisma.project.findMany({
       where: {

@@ -19,12 +19,8 @@ type Ship = {
   lastReportedAt: string | null;
 };
 
-const fetchShips = async (apiKey: string): Promise<Ship[]> => {
-  const response = await fetch('/api/public/ships', {
-    headers: {
-      'x-api-key': apiKey,
-    },
-  });
+const fetchShips = async (): Promise<Ship[]> => {
+  const response = await fetch('/api/public/ships');
   if (!response.ok) {
     throw new Error('Gagal memuat data kapal');
   }
@@ -38,7 +34,7 @@ const fetchShips = async (apiKey: string): Promise<Ship[]> => {
   }));
 };
 
-export default function PublicMap({ apiKey }: { apiKey: string }) {
+export default function PublicMap() {
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<LeafletMap | null>(null);
   const markersRef = useRef<{ [id: string]: LeafletMarker }>({});
@@ -53,7 +49,7 @@ export default function PublicMap({ apiKey }: { apiKey: string }) {
     error,
   } = useQuery({
     queryKey: ['public-ships'],
-    queryFn: () => fetchShips(apiKey),
+    queryFn: () => fetchShips(),
     refetchInterval: REFRESH_INTERVAL,
     refetchIntervalInBackground: true,
   });

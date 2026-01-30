@@ -7,8 +7,6 @@ import TransLautJatimSection from '@/components/TransLautJatimSection';
 import Footer from '@/components/Footer';
 
 export default function Home() {
-  const mapsApiKey = process.env.MAPS_API_KEY || '';
-
   return (
     <div className="min-h-screen bg-slate-50">
       <Navbar />
@@ -28,7 +26,7 @@ export default function Home() {
            </div>
            
            <div className="relative w-full h-[600px] rounded-3xl overflow-hidden shadow-2xl border-4 border-white">
-              <PublicMap apiKey={mapsApiKey} />
+              <PublicMap />
            </div>
         </div>
       </div>
