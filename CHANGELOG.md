@@ -17,6 +17,7 @@
 ### Fixed
 - Perbaikan urutan React hooks pada halaman Storage (rules of hooks)
 - Perbaikan TypeScript type error pada API storage route saat build
+- Perbaikan type casting GaxiosResponse pada streaming endpoint
 
 ---
 

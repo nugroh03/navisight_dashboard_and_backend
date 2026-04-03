@@ -87,7 +87,7 @@ export async function GET(
         responseType: 'stream',
         headers: rangeHeader ? { Range: `bytes=${start}-${end}` } : {},
       }
-    )) as GaxiosResponse<NodeJS.ReadableStream>;
+    )) as unknown as GaxiosResponse<NodeJS.ReadableStream>;
 
     const stream = driveResponse.data;
 
