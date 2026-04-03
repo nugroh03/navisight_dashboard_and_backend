@@ -73,8 +73,15 @@ export async function GET(req: NextRequest) {
     ]);
 
     const rawFolders = foldersRes.data.files ?? [];
-    type FolderWithSize = { id: string; name: string; modifiedTime: string; totalSize?: number; fileCount?: number };
-    let folders: FolderWithSize[] = rawFolders as FolderWithSize[];
+
+    const toFolder = (f: typeof rawFolders[number], extra?: { totalSize: number; fileCount: number }) => ({
+      id: f.id ?? '',
+      name: f.name ?? '',
+      modifiedTime: f.modifiedTime ?? '',
+      ...extra,
+    });
+
+    let folders = rawFolders.map((f) => toFolder(f));
 
     if (withSizes === '1' && rawFolders.length > 0) {
       // Direct children: 1 query per folder
@@ -90,7 +97,7 @@ export async function GET(req: NextRequest) {
       folders = rawFolders.map((folder, i) => {
         const videoFiles = sizeResults[i].data.files ?? [];
         const totalSize = videoFiles.reduce((sum, f) => sum + parseInt(f.size ?? '0', 10), 0);
-        return { ...folder, totalSize, fileCount: videoFiles.length };
+        return toFolder(folder, { totalSize, fileCount: videoFiles.length });
       });
     } else if (withSizes === '2' && rawFolders.length > 0) {
       // Grandchildren: get date subfolders first, then batch-query all their videos
@@ -130,7 +137,7 @@ export async function GET(req: NextRequest) {
       folders = rawFolders.map((folder, i) => {
         const videoFiles = videoSizeResults[i];
         const totalSize = videoFiles.reduce((sum, f) => sum + parseInt(f.size ?? '0', 10), 0);
-        return { ...folder, totalSize, fileCount: videoFiles.length };
+        return toFolder(folder, { totalSize, fileCount: videoFiles.length });
       });
     }
 
