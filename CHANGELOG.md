@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.8.1] - 2026-07-01
+
+### Changed
+- Kartu folder Storage kini menampilkan hanya nama ruangan (prefix code disembunyikan)
+- Tanggal dihilangkan dari kartu folder Storage
+
+### Removed
+- Stat "Total Ukuran" pada header Storage
+- Ukuran file pada kartu video dan modal detail video
+
+---
+
 ## [0.8.0] - 2026-04-03
 
 ### Added

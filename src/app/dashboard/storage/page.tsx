@@ -4,7 +4,6 @@ import { useState, useEffect, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { redirect } from "next/navigation";
 import {
-  HardDrive,
   Search,
   Play,
   Download,
@@ -40,13 +39,9 @@ interface StorageResponse {
   files: DriveFile[];
 }
 
-function formatBytes(bytes: string | number): string {
-  const b = typeof bytes === "string" ? parseInt(bytes, 10) : bytes;
-  if (!b || isNaN(b)) return "-";
-  if (b < 1024) return `${b} B`;
-  if (b < 1024 * 1024) return `${(b / 1024).toFixed(1)} KB`;
-  if (b < 1024 * 1024 * 1024) return `${(b / (1024 * 1024)).toFixed(1)} MB`;
-  return `${(b / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+function displayFolderName(name: string): string {
+  const idx = name.indexOf(" - ");
+  return idx !== -1 ? name.slice(idx + 3) : name;
 }
 
 function formatDate(iso: string): string {
@@ -159,7 +154,6 @@ export default function StoragePage() {
       }
     });
 
-  const totalSize = files.reduce((sum, f) => sum + parseInt(f.size ?? "0", 10), 0);
   const isRoot = navStack.length === 0;
 
   // ── Render ───────────────────────────────────────────────────────────────
@@ -198,7 +192,7 @@ export default function StoragePage() {
                   }`}
                   disabled={isLast}
                 >
-                  {item.name}
+                  {displayFolderName(item.name)}
                 </button>
               </span>
             );
@@ -232,26 +226,15 @@ export default function StoragePage() {
                   </div>
                 )}
                 {files.length > 0 && (
-                  <>
-                    <div className="flex items-center gap-3">
-                      <div className="h-10 w-10 rounded-lg bg-[var(--color-primary)]/10 flex items-center justify-center">
-                        <Film className="h-5 w-5 text-[var(--color-primary-strong)]" />
-                      </div>
-                      <div>
-                        <p className="text-xs text-[var(--color-muted)] uppercase tracking-wide">Total Video</p>
-                        <p className="text-lg font-semibold text-[var(--color-text)]">{files.length}</p>
-                      </div>
+                  <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-lg bg-[var(--color-primary)]/10 flex items-center justify-center">
+                      <Film className="h-5 w-5 text-[var(--color-primary-strong)]" />
                     </div>
-                    <div className="flex items-center gap-3">
-                      <div className="h-10 w-10 rounded-lg bg-[var(--color-primary)]/10 flex items-center justify-center">
-                        <HardDrive className="h-5 w-5 text-[var(--color-primary-strong)]" />
-                      </div>
-                      <div>
-                        <p className="text-xs text-[var(--color-muted)] uppercase tracking-wide">Total Ukuran</p>
-                        <p className="text-lg font-semibold text-[var(--color-text)]">{formatBytes(totalSize)}</p>
-                      </div>
+                    <div>
+                      <p className="text-xs text-[var(--color-muted)] uppercase tracking-wide">Total Video</p>
+                      <p className="text-lg font-semibold text-[var(--color-text)]">{files.length}</p>
                     </div>
-                  </>
+                  </div>
                 )}
               </>
             )}
@@ -347,13 +330,9 @@ export default function StoragePage() {
                 <div className="min-w-0 flex-1">
                   <p
                     className="text-sm font-semibold text-[var(--color-text)] truncate"
-                    title={folder.name}
+                    title={displayFolderName(folder.name)}
                   >
-                    {folder.name}
-                  </p>
-                  <p className="text-xs text-[var(--color-muted)] mt-0.5 flex items-center gap-1">
-                    <Calendar className="h-3 w-3" />
-                    {formatDate(folder.modifiedTime)}
+                    {displayFolderName(folder.name)}
                   </p>
                   {/* {folder.totalSize !== undefined && folder.totalSize > 0 && (
                     <p className="text-xs text-[var(--color-muted)] mt-0.5 flex items-center gap-1">
@@ -427,11 +406,7 @@ export default function StoragePage() {
                     >
                       {file.name}
                     </p>
-                    <div className="flex items-center justify-between text-xs text-[var(--color-muted)]">
-                      <span className="flex items-center gap-1">
-                        <HardDrive className="h-3 w-3" />
-                        {formatBytes(file.size)}
-                      </span>
+                    <div className="flex items-center text-xs text-[var(--color-muted)]">
                       <span className="flex items-center gap-1">
                         <Calendar className="h-3 w-3" />
                         {formatDate(file.createdTime)}
@@ -512,10 +487,6 @@ export default function StoragePage() {
             {/* File Info & Actions */}
             <div className="p-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div className="space-y-1 text-sm text-[var(--color-muted)]">
-                <p>
-                  <span className="font-medium text-[var(--color-text)]">Ukuran:</span>{" "}
-                  {formatBytes(selectedFile.size)}
-                </p>
                 <p>
                   <span className="font-medium text-[var(--color-text)]">Diunggah:</span>{" "}
                   {formatDate(selectedFile.createdTime)}
