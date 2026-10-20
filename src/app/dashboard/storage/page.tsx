@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useSession } from "next-auth/react";
 import { redirect } from "next/navigation";
 import {
@@ -39,6 +39,9 @@ interface StorageResponse {
   files: DriveFile[];
 }
 
+// Jumlah item yang ditambahkan setiap scroll. Kelipatan 24 pas untuk grid 1, 2, 3, dan 4 kolom.
+const PAGE_SIZE = 24;
+
 function displayFolderName(name: string): string {
   const idx = name.indexOf(" - ");
   return idx !== -1 ? name.slice(idx + 3) : name;
@@ -66,6 +69,8 @@ export default function StoragePage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [sortOrder, setSortOrder] = useState<"newest" | "oldest" | "largest" | "smallest">("newest");
   const [selectedFile, setSelectedFile] = useState<DriveFile | null>(null);
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+  const sentinelRef = useRef<HTMLDivElement>(null);
 
   // ── Navigation helpers ───────────────────────────────────────────────────
   const currentFolderId = navStack.length > 0 ? navStack[navStack.length - 1].id : null;
@@ -73,16 +78,19 @@ export default function StoragePage() {
   function navigateInto(folder: { id: string; name: string }) {
     setNavStack((prev) => [...prev, folder]);
     setSearchTerm("");
+    setVisibleCount(PAGE_SIZE);
   }
 
   function navigateBack() {
     setNavStack((prev) => prev.slice(0, -1));
     setSearchTerm("");
+    setVisibleCount(PAGE_SIZE);
   }
 
   function navigateTo(index: number) {
     setNavStack((prev) => prev.slice(0, index));
     setSearchTerm("");
+    setVisibleCount(PAGE_SIZE);
   }
 
   // ── Data fetching ────────────────────────────────────────────────────────
@@ -115,6 +123,48 @@ export default function StoragePage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [navStack]);
 
+  // ── Filtering & sorting (hanya untuk video) ──────────────────────────────
+  const filteredFiles = files
+    .filter((f) => f.name.toLowerCase().includes(searchTerm.toLowerCase()))
+    .sort((a, b) => {
+      switch (sortOrder) {
+        case "newest":
+          return new Date(b.createdTime).getTime() - new Date(a.createdTime).getTime();
+        case "oldest":
+          return new Date(a.createdTime).getTime() - new Date(b.createdTime).getTime();
+        case "largest":
+          return parseInt(b.size ?? "0") - parseInt(a.size ?? "0");
+        case "smallest":
+          return parseInt(a.size ?? "0") - parseInt(b.size ?? "0");
+        default:
+          return 0;
+      }
+    });
+
+  // ── Infinite scroll: tampilkan PAGE_SIZE item, tambah lagi saat penanda di bawah terlihat ──
+  // Folder dan video dihitung sebagai satu daftar berurutan (folder dulu, lalu video).
+  const visibleFolders = folders.slice(0, visibleCount);
+  const visibleFiles = filteredFiles.slice(0, Math.max(0, visibleCount - folders.length));
+  const hasMore = visibleCount < folders.length + filteredFiles.length;
+
+  useEffect(() => {
+    const sentinel = sentinelRef.current;
+    if (loading || !hasMore || !sentinel) return;
+
+    // Observer dibuat ulang setiap visibleCount berubah, sehingga jika penanda
+    // masih terlihat setelah item ditambah (layar besar), item ditambah lagi.
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) {
+          setVisibleCount((count) => count + PAGE_SIZE);
+        }
+      },
+      { rootMargin: "200px" }
+    );
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [loading, hasMore, visibleCount]);
+
   // ── Auth guards (after all hooks) ────────────────────────────────────────
   if (status === "loading") {
     return (
@@ -135,24 +185,6 @@ export default function StoragePage() {
       </div>
     );
   }
-
-  // ── Filtering & sorting (hanya untuk video) ──────────────────────────────
-  const filteredFiles = files
-    .filter((f) => f.name.toLowerCase().includes(searchTerm.toLowerCase()))
-    .sort((a, b) => {
-      switch (sortOrder) {
-        case "newest":
-          return new Date(b.createdTime).getTime() - new Date(a.createdTime).getTime();
-        case "oldest":
-          return new Date(a.createdTime).getTime() - new Date(b.createdTime).getTime();
-        case "largest":
-          return parseInt(b.size ?? "0") - parseInt(a.size ?? "0");
-        case "smallest":
-          return parseInt(a.size ?? "0") - parseInt(b.size ?? "0");
-        default:
-          return 0;
-      }
-    });
 
   const isRoot = navStack.length === 0;
 
@@ -265,14 +297,20 @@ export default function StoragePage() {
                   type="text"
                   placeholder="Cari rekaman..."
                   value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
+                  onChange={(e) => {
+                    setSearchTerm(e.target.value);
+                    setVisibleCount(PAGE_SIZE);
+                  }}
                   className="input-field w-full pl-10 pr-4 py-2.5 border border-[var(--color-border)] rounded-[var(--radius-md)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-strong)] focus:border-transparent"
                 />
               </div>
               <div className="relative flex-shrink-0">
                 <select
                   value={sortOrder}
-                  onChange={(e) => setSortOrder(e.target.value as typeof sortOrder)}
+                  onChange={(e) => {
+                    setSortOrder(e.target.value as typeof sortOrder);
+                    setVisibleCount(PAGE_SIZE);
+                  }}
                   className="appearance-none pl-4 pr-10 py-2.5 border border-[var(--color-border)] rounded-[var(--radius-md)] text-sm text-[var(--color-text)] bg-white focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-strong)] cursor-pointer"
                 >
                   <option value="newest">Terbaru</option>
@@ -318,7 +356,7 @@ export default function StoragePage() {
             </p>
           )}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {folders.map((folder) => (
+            {visibleFolders.map((folder) => (
               <button
                 key={folder.id}
                 onClick={() => navigateInto({ id: folder.id, name: folder.name })}
@@ -349,7 +387,7 @@ export default function StoragePage() {
       )}
 
       {/* Video cards */}
-      {!loading && files.length > 0 && (
+      {!loading && files.length > 0 && (filteredFiles.length === 0 || visibleFiles.length > 0) && (
         <div>
           {folders.length > 0 && (
             <p className="text-xs font-semibold uppercase tracking-wider text-[var(--color-muted)] mb-3">
@@ -371,7 +409,7 @@ export default function StoragePage() {
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-              {filteredFiles.map((file) => (
+              {visibleFiles.map((file) => (
                 <button
                   key={file.id}
                   onClick={() => setSelectedFile(file)}
@@ -419,6 +457,9 @@ export default function StoragePage() {
           )}
         </div>
       )}
+
+      {/* Penanda infinite scroll */}
+      {!loading && hasMore && <div ref={sentinelRef} className="h-1" aria-hidden="true" />}
 
       {/* Empty state */}
       {!loading && folders.length === 0 && files.length === 0 && !error && (

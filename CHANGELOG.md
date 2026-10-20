@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.8.2] - 2026-10-20
+
+### Fixed
+- Jumlah folder pada halaman Storage tidak lagi tertahan di 100; API kini mengambil semua halaman hasil Google Drive
+- Daftar video per folder tidak lagi terpotong di 50 video
+
+### Changed
+- Folder dan video pada halaman Storage ditampilkan bertahap per 24 item dengan infinite scroll
+
+---
+
 ## [0.8.1] - 2026-07-01
 
 ### Changed

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { google } from 'googleapis';
+import { google, drive_v3 } from 'googleapis';
 import { requireAuth } from '@/lib/auth-helpers';
 
 function getDriveClient() {
@@ -15,6 +15,30 @@ function getDriveClient() {
   });
 
   return google.drive({ version: 'v3', auth });
+}
+
+// Drive membatasi jumlah item per halaman, jadi ikuti nextPageToken
+// sampai semua item terambil.
+async function listAllFiles(
+  drive: drive_v3.Drive,
+  params: { q: string; fields: string; orderBy?: string }
+): Promise<drive_v3.Schema$File[]> {
+  const files: drive_v3.Schema$File[] = [];
+  let pageToken: string | undefined;
+
+  do {
+    const res = await drive.files.list({
+      q: params.q,
+      orderBy: params.orderBy,
+      fields: `nextPageToken, ${params.fields}`,
+      pageSize: 1000,
+      pageToken,
+    });
+    files.push(...(res.data.files ?? []));
+    pageToken = res.data.nextPageToken ?? undefined;
+  } while (pageToken);
+
+  return files;
 }
 
 // GET /api/storage?folderId=xxx
@@ -57,22 +81,18 @@ export async function GET(req: NextRequest) {
     // withSizes=2 : video files are grandchildren (camera level → date → video)
     const withSizes = searchParams.get('withSizes');
 
-    const [foldersRes, filesRes] = await Promise.all([
-      drive.files.list({
+    const [rawFolders, videos] = await Promise.all([
+      listAllFiles(drive, {
         q: `'${folderId}' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false`,
         fields: 'files(id, name, modifiedTime)',
         orderBy: 'name desc',
-        pageSize: 100,
       }),
-      drive.files.list({
+      listAllFiles(drive, {
         q: `'${folderId}' in parents and mimeType contains 'video/' and trashed = false`,
         fields: 'files(id, name, size, createdTime, modifiedTime, thumbnailLink, mimeType)',
         orderBy: 'createdTime desc',
-        pageSize: 50,
       }),
     ]);
-
-    const rawFolders = foldersRes.data.files ?? [];
 
     const toFolder = (f: typeof rawFolders[number], extra?: { totalSize: number; fileCount: number }) => ({
       id: f.id ?? '',
@@ -143,7 +163,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({
       folders,
-      files: filesRes.data.files ?? [],
+      files: videos,
     });
   } catch (error) {
     console.error('Error fetching storage contents:', error);
