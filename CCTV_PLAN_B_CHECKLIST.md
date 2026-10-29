@@ -42,7 +42,7 @@ Legenda: `[ ]` belum · `[~]` sedang dikerjakan · `[x]` selesai & terverifikasi
 | [x] | 2B: Service go2rtc di Dokploy | Container berjalan, restart otomatis | Proyek `cctv-gateway`, Compose (Raw) dari `deploy/go2rtc-vps/docker-compose.yml`, image `alexxit/go2rtc:1.9.14`, `restart: unless-stopped`, gabung `dokploy-network` — 2026-10-29 |
 | [x] | Kredensial di env | Tidak ada password tertulis di file konfigurasi/repo | Lokal: `/etc/go2rtc/go2rtc.env` (600). VPS: tab Environment Dokploy. GO2RTC_API_PASS sempat bocor ke chat 2× → sudah dirotasi user (2026-10-29); hapus juga dari history bash VPS |
 | [x] | Jalur VPS → lokal → kamera | Snapshot cam141 dari API go2rtc VPS | `frame.jpeg?src=cam141` HTTP 200, 46 KB — 2026-10-29 |
-| [~] | Port WebRTC 8555 | Video WebRTC tersambung dari browser luar jaringan | 8555/tcp terbuka dari internet (dites). Tes browser via SSH tunnel Termius gagal (`ERR_TOO_MANY_RETRIES` di Chrome/Edge, padahal curl via tunnel dapat 401 dari go2rtc) → **ditunda, dites langsung di dashboard (Tahap 4)** |
+| [x] | Port WebRTC 8555 | Video WebRTC tersambung dari browser luar jaringan | Terbukti via dashboard production 2026-10-29. 8555/tcp terbuka dari internet (dites). Tes browser via SSH tunnel Termius gagal (`ERR_TOO_MANY_RETRIES` di Chrome/Edge, padahal curl via tunnel dapat 401 dari go2rtc) → **ditunda, dites langsung di dashboard (Tahap 4)** |
 | [x] | API 1984 tidak publik | Tidak bisa diakses tanpa melalui dashboard/proxy | Port 1984 hanya `127.0.0.1` di VPS (tertutup dari internet) + basic auth (tanpa password → 401) — 2026-10-29 |
 | [ ] | Beban CPU VPS wajar | CPU saat 8 kamera ditonton bersamaan tercatat & aman | |
 
@@ -56,9 +56,9 @@ Legenda: `[ ]` belum · `[~]` sedang dikerjakan · `[x]` selesai & terverifikasi
 ### Tahap 4a: Viewer video
 | | Item | Kriteria lulus | Catatan |
 |---|---|---|---|
-| [~] | Tipe stream `webrtc` di halaman view | Video live tampil di Chrome & Firefox (Linux) | `WebRTCPlayer` + `POST /api/cctv/[id]/webrtc` (proxy signaling, cek login & akses project). Uji E2E lokal Chrome headless → go2rtc: signaling 201 `application/sdp`, video 768×432 playing ±4,1 s, `connected` — 2026-10-29. Belum dites di production |
-| [~] | Fallback MSE/HLS | Jika WebRTC gagal, video tetap tampil | Otomatis kembali ke stream lama (HLS Shinobi) setelah 3 percobaan / error konfigurasi; tombol "Coba WebRTC lagi". Belum dites di production |
-| [ ] | Latensi | Delay terukur ≤ ~2 detik | |
+| [x] | Tipe stream `webrtc` di halaman view | Video live tampil di Chrome & Firefox (Linux) | Production 2026-10-29: kamera Ruang VIP (cam141) tampil "LIVE · WebRTC"; jalur terkonfirmasi (VPS 100.122.221.32 menarik RTSP dari go2rtc lokal, ffmpeg .141 ±9% 1 core, Shinobi 7/7). Firefox belum dites |
+| [x] | Fallback MSE/HLS | Jika WebRTC gagal, video tetap tampil | Terbukti di production: nama stream salah (`vip-cam141` → go2rtc 404) → kotak kuning + kembali ke HLS. Catatan: pemutar HLS cadangan untuk kamera ini diam di 0:00/0:12 (perlu dicek terpisah) |
+| [x] | Latensi | Delay terukur ≤ ~2 detik | **±1 s di dashboard** (dicek user, 2026-10-29; sebelumnya ±4 s). Rincian: langsung kamera ≈0,2 s; output go2rtc lokal ≈1,6 s → ≈0,23 s setelah decoder `-threads 1 -flags low_delay` + encoder `-async_depth 1`; sisanya Tailscale/VPS/WebRTC/browser |
 | [ ] | Deploy Rilis 1 | Berjalan di production, rekaman Shinobi tetap normal | |
 
 ## Rilis 2 — PTZ

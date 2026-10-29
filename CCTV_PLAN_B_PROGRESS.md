@@ -184,7 +184,20 @@ Belum dicoba: tes hotspot HP, cek blokir perangkat di aplikasi Starlink, tanya s
 
 ---
 
-## 6. Berikutnya: Tahap 2 (go2rtc), dilanjutkan 2026-10-29
+## 6. Optimasi latensi (2026-10-29)
+
+Metode: ambil 60 frame berturut-turut, potong area jam OSD kamera, tempelkan waktu terima frame (ms) dari jam PC. Jam kamera dan PC sama-sama NTP (dicek identik). Jeda = waktu terima frame pertama dengan detik OSD baru − pergantian detik.
+
+| Titik ukur | Sebelum | Sesudah |
+|---|---|---|
+| RTSP langsung dari kamera (ch 102) | ≈0,2 s | ≈0,2 s |
+| Output go2rtc lokal (`cam141`) | ≈1,6 s | **≈0,23 s** |
+| Dashboard (WebRTC via VPS, dicek user) | ±4 s | **±1 s** |
+
+Penyebab: decoder H.265 ffmpeg default memakai frame-threading (menahan beberapa frame, ±1,4 s pada 10 fps).
+Perbaikan di `deploy/go2rtc-local/go2rtc.yaml`: input `-flags low_delay -threads 1`, encoder `-async_depth 1`. Dipasang ke `/etc/go2rtc/go2rtc.yaml` + `systemctl restart go2rtc` (Shinobi tidak terpengaruh).
+
+## 7. Catatan lama — rencana Tahap 2 (sudah dikerjakan)
 
 Rencana awal (dijelaskan & disetujui dulu sebelum dipasang):
 1. **go2rtc lokal** di PC lokal: baca RTSP channel 102 tiap kamera, transcode H.265→H.264 dengan VAAPI (`/dev/dri/renderD128`, CQP), sajikan RTSP di port 8554 hanya untuk Tailscale. Hanya menarik stream saat ada penonton.
