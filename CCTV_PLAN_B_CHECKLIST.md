@@ -50,7 +50,7 @@ Legenda: `[ ]` belum · `[~]` sedang dikerjakan · `[x]` selesai & terverifikasi
 | | Item | Kriteria lulus | Catatan |
 |---|---|---|---|
 | [x] | Migrasi Prisma | Kolom `go2rtcStream`, `isapiHost`, `ptzEnabled`, `audioEnabled` (opsional) ditambahkan, data lama aman | `prisma/migrations/20261029090000_add_camera_live_fields` (hanya ADD COLUMN), `prisma validate` OK. Diterapkan ke DB production oleh user (`migrate deploy` dari PC lokal) — 2026-10-29 |
-| [~] | Form create/edit kamera | Kolom baru bisa diisi & disimpan | Bagian "Live View (go2rtc)" khusus ADMINISTRATOR (UI + API mengabaikan field dari non-admin; `isapiHost` hanya dikirim ke admin). tsc OK, `next build` OK, uji validasi OK — 2026-10-29. **Belum di-deploy** |
+| [x] | Form create/edit kamera | Kolom baru bisa diisi & disimpan | Bagian "Live View (go2rtc)" khusus ADMINISTRATOR (UI + API mengabaikan field dari non-admin; `isapiHost` hanya dikirim ke admin). tsc OK, `next build` OK, uji validasi OK; ter-deploy (PR #1) & 8 kamera sudah diisi lewat form; nama stream kini dropdown (PR #2) — 2026-10-29 |
 | [ ] | Data 8 kamera diisi | Semua kamera punya `go2rtcStream` | SQL siap: `deploy/sql/2026-10-29_camera_live_fields_data.sql` (cocokkan ID monitor Shinobi di `ulr_camera`; pratinjau dulu) |
 
 ### Tahap 4a: Viewer video
@@ -65,11 +65,11 @@ Legenda: `[ ]` belum · `[~]` sedang dikerjakan · `[x]` selesai & terverifikasi
 
 | | Item | Kriteria lulus | Catatan |
 |---|---|---|---|
-| [~] | Helper Digest Auth ISAPI | Request ISAPI dari server berhasil | `src/lib/isapi.ts`: diuji dari PC lokal ke kamera .141 (status/presets/deviceInfo HTTP 200); hanya IPv4 privat (8.8.8.8 ditolak). Belum dites dari container VPS |
-| [~] | API `POST /api/cctv/[id]/ptz` | Wajib login; tanpa sesi ditolak (401) | move/stop/goto + GET presets; khusus ADMINISTRATOR, cek akses project, `ptzEnabled` & `isapiHost`; auto-stop server 1,5 s bila tidak ada move baru. Build OK, belum di-deploy |
-| [~] | Gerak pan/tilt/zoom | Kamera bergerak saat tombol ditekan, berhenti saat dilepas | Tes dari PC lokal ke .141 (helper yang sama): move/stop HTTP 200; auto-stop 1,5 s terbukti (snapshot t3s vs t5s SSIM 0,94); container dashboard → 7 kamera port 80 OK (401 tanpa login) — 2026-10-29. Belum dites dari UI production |
+| [x] | Helper Digest Auth ISAPI | Request ISAPI dari server berhasil | `src/lib/isapi.ts`: diuji dari PC lokal ke kamera .141 (status/presets/deviceInfo HTTP 200); hanya IPv4 privat (8.8.8.8 ditolak); dari container production berfungsi (PTZ UI OK) — 2026-10-29 |
+| [x] | API `POST /api/cctv/[id]/ptz` | Wajib login; tanpa sesi ditolak (401) | move/stop/goto + GET presets; khusus ADMINISTRATOR, cek akses project, `ptzEnabled` & `isapiHost`; auto-stop server 1,5 s bila tidak ada move baru. Ter-deploy (PR #2) & dites user dari production — 2026-10-29 |
+| [x] | Gerak pan/tilt/zoom | Kamera bergerak saat tombol ditekan, berhenti saat dilepas | Tes dari PC lokal ke .141 (helper yang sama): move/stop HTTP 200; auto-stop 1,5 s terbukti (snapshot t3s vs t5s SSIM 0,94); container dashboard → 7 kamera port 80 OK (401 tanpa login) — 2026-10-29. Dites user dari UI production (Ruang VIP / .141): normal — 2026-10-29 |
 | [~] | Preset | Daftar preset tampil & goto preset berfungsi | .141: posisi standar disimpan sebagai preset 1; goto preset 1 kembali (selisih ±5 px). 7 kamera lain belum punya preset |
-| [~] | UI kontrol PTZ | Tombol arah, zoom, preset di halaman view | `PtzControls`: tahan untuk gerak (refresh 400 ms), stop saat lepas/blur/tab disembunyikan, kecepatan 3 level, preset. Build OK |
+| [x] | UI kontrol PTZ | Tombol arah, zoom, preset di halaman view | `PtzControls`: tahan untuk gerak (refresh 400 ms), stop saat lepas/blur/tab disembunyikan, kecepatan 3 level, preset. Dites user di production: normal — 2026-10-29 |
 | [ ] | Uji 8 kamera | PTZ berfungsi di semua kamera | |
 | [ ] | Deploy Rilis 2 | Berjalan di production | |
 
