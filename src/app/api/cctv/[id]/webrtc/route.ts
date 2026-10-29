@@ -2,8 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/auth/config';
 import { findAccessibleCamera } from '@/lib/camera-access';
-
-const GO2RTC_TIMEOUT_MS = 10_000;
+import { go2rtcFetch, Go2rtcNotConfiguredError } from '@/lib/go2rtc';
 
 // POST /api/cctv/[id]/webrtc - Signaling WebRTC: teruskan SDP offer browser ke
 // go2rtc (jaringan internal) dan kembalikan SDP answer. Browser tidak pernah
@@ -36,15 +35,6 @@ export async function POST(
       );
     }
 
-    const go2rtcUrl = process.env.GO2RTC_URL;
-    if (!go2rtcUrl) {
-      console.error('GO2RTC_URL is not configured');
-      return NextResponse.json(
-        { message: 'Live view belum tersedia' },
-        { status: 503 }
-      );
-    }
-
     const offer = await request.text();
     if (!offer.startsWith('v=0')) {
       return NextResponse.json(
@@ -53,29 +43,24 @@ export async function POST(
       );
     }
 
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/sdp',
-    };
-    const apiUser = process.env.GO2RTC_API_USER;
-    const apiPass = process.env.GO2RTC_API_PASS;
-    if (apiUser && apiPass) {
-      headers.Authorization = `Basic ${Buffer.from(
-        `${apiUser}:${apiPass}`
-      ).toString('base64')}`;
-    }
-
-    const response = await fetch(
-      `${go2rtcUrl.replace(/\/$/, '')}/api/webrtc?src=${encodeURIComponent(
-        camera.go2rtcStream
-      )}`,
+    const response = await go2rtcFetch(
+      `/api/webrtc?src=${encodeURIComponent(camera.go2rtcStream)}`,
       {
         method: 'POST',
-        headers,
+        headers: { 'Content-Type': 'application/sdp' },
         body: offer,
-        cache: 'no-store',
-        signal: AbortSignal.timeout(GO2RTC_TIMEOUT_MS),
       }
     );
+
+    if (response.status === 404) {
+      // Nama stream tidak ada di konfigurasi go2rtc: tidak akan pulih dengan mencoba ulang.
+      return NextResponse.json(
+        {
+          message: `Stream "${camera.go2rtcStream}" tidak ditemukan di go2rtc`,
+        },
+        { status: 404 }
+      );
+    }
 
     if (!response.ok) {
       console.error(
@@ -97,6 +82,13 @@ export async function POST(
       },
     });
   } catch (error) {
+    if (error instanceof Go2rtcNotConfiguredError) {
+      console.error(error.message);
+      return NextResponse.json(
+        { message: 'Live view belum tersedia' },
+        { status: 503 }
+      );
+    }
     const isTimeout =
       error instanceof Error &&
       (error.name === 'TimeoutError' || error.name === 'AbortError');

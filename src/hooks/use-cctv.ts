@@ -148,3 +148,36 @@ export function useReorderCCTV() {
     },
   });
 }
+
+// Daftar nama stream go2rtc (khusus ADMINISTRATOR, untuk form kamera)
+export function useGo2rtcStreams(enabled: boolean) {
+  return useQuery({
+    queryKey: ['cctv', 'go2rtc-streams'],
+    queryFn: async () => {
+      const response = await fetch('/api/cctv/go2rtc-streams');
+      if (!response.ok) {
+        throw new Error('Failed to fetch go2rtc streams');
+      }
+      return response.json() as Promise<string[]>;
+    },
+    enabled,
+    retry: false,
+    staleTime: 60_000,
+  });
+}
+
+// Daftar preset PTZ kamera
+export function useCCTVPtzPresets(id: string, enabled: boolean) {
+  return useQuery({
+    queryKey: ['cctv', id, 'ptz-presets'],
+    queryFn: async () => {
+      const response = await fetch(`/api/cctv/${id}/ptz`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch PTZ presets');
+      }
+      return response.json() as Promise<{ id: number; name: string }[]>;
+    },
+    enabled: enabled && !!id,
+    retry: false,
+  });
+}

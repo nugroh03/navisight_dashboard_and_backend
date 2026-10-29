@@ -20,6 +20,7 @@ import Link from 'next/link';
 import Hls from 'hls.js';
 import { detectStreamType, type StreamType } from '@/lib/stream-utils';
 import { WebRTCPlayer } from '@/components/cctv/webrtc-player';
+import { PtzControls } from '@/components/cctv/ptz-controls';
 
 const withCacheBuster = (url: string) =>
   `${url}${url.includes('?') ? '&' : '?'}cb=${Date.now()}`;
@@ -576,6 +577,10 @@ export default function ViewCCTVPage() {
                 Coba WebRTC lagi
               </button>
             </div>
+          )}
+
+          {isAdmin && camera.ptzEnabled && camera.isapiHost && (
+            <PtzControls cameraId={camera.id} />
           )}
         </div>
       </div>

@@ -59,17 +59,17 @@ Legenda: `[ ]` belum · `[~]` sedang dikerjakan · `[x]` selesai & terverifikasi
 | [x] | Tipe stream `webrtc` di halaman view | Video live tampil di Chrome & Firefox (Linux) | Production 2026-10-29: kamera Ruang VIP (cam141) tampil "LIVE · WebRTC"; jalur terkonfirmasi (VPS 100.122.221.32 menarik RTSP dari go2rtc lokal, ffmpeg .141 ±9% 1 core, Shinobi 7/7). Firefox belum dites |
 | [x] | Fallback MSE/HLS | Jika WebRTC gagal, video tetap tampil | Terbukti di production: nama stream salah (`vip-cam141` → go2rtc 404) → kotak kuning + kembali ke HLS. Catatan: pemutar HLS cadangan untuk kamera ini diam di 0:00/0:12 (perlu dicek terpisah) |
 | [x] | Latensi | Delay terukur ≤ ~2 detik | **±1 s di dashboard** (dicek user, 2026-10-29; sebelumnya ±4 s). Rincian: langsung kamera ≈0,2 s; output go2rtc lokal ≈1,6 s → ≈0,23 s setelah decoder `-threads 1 -flags low_delay` + encoder `-async_depth 1`; sisanya Tailscale/VPS/WebRTC/browser |
-| [ ] | Deploy Rilis 1 | Berjalan di production, rekaman Shinobi tetap normal | |
+| [x] | Deploy Rilis 1 | Berjalan di production, rekaman Shinobi tetap normal | PR #1 di-merge ke `main` (`f2bec0c`), build & deploy `main` sukses; 8 kamera diisi user; Shinobi 7/7 — 2026-10-29 |
 
 ## Rilis 2 — PTZ
 
 | | Item | Kriteria lulus | Catatan |
 |---|---|---|---|
-| [ ] | Helper Digest Auth ISAPI | Request ISAPI dari server berhasil | |
-| [ ] | API `POST /api/cctv/[id]/ptz` | Wajib login; tanpa sesi ditolak (401) | |
-| [ ] | Gerak pan/tilt/zoom | Kamera bergerak saat tombol ditekan, berhenti saat dilepas | |
-| [ ] | Preset | Daftar preset tampil & goto preset berfungsi | |
-| [ ] | UI kontrol PTZ | Tombol arah, zoom, preset di halaman view | |
+| [~] | Helper Digest Auth ISAPI | Request ISAPI dari server berhasil | `src/lib/isapi.ts`: diuji dari PC lokal ke kamera .141 (status/presets/deviceInfo HTTP 200); hanya IPv4 privat (8.8.8.8 ditolak). Belum dites dari container VPS |
+| [~] | API `POST /api/cctv/[id]/ptz` | Wajib login; tanpa sesi ditolak (401) | move/stop/goto + GET presets; khusus ADMINISTRATOR, cek akses project, `ptzEnabled` & `isapiHost`; auto-stop server 1,5 s bila tidak ada move baru. Build OK, belum di-deploy |
+| [~] | Gerak pan/tilt/zoom | Kamera bergerak saat tombol ditekan, berhenti saat dilepas | Tes dari PC lokal ke .141 (helper yang sama): move/stop HTTP 200; auto-stop 1,5 s terbukti (snapshot t3s vs t5s SSIM 0,94); container dashboard → 7 kamera port 80 OK (401 tanpa login) — 2026-10-29. Belum dites dari UI production |
+| [~] | Preset | Daftar preset tampil & goto preset berfungsi | .141: posisi standar disimpan sebagai preset 1; goto preset 1 kembali (selisih ±5 px). 7 kamera lain belum punya preset |
+| [~] | UI kontrol PTZ | Tombol arah, zoom, preset di halaman view | `PtzControls`: tahan untuk gerak (refresh 400 ms), stop saat lepas/blur/tab disembunyikan, kecepatan 3 level, preset. Build OK |
 | [ ] | Uji 8 kamera | PTZ berfungsi di semua kamera | |
 | [ ] | Deploy Rilis 2 | Berjalan di production | |
 
