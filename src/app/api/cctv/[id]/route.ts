@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/auth/config';
 import { prisma } from '@/lib/prisma';
 import { updateCCTVSchema } from '@/lib/validations';
+import { findAccessibleCamera } from '@/lib/camera-access';
 import { z } from 'zod';
 
 // GET /api/cctv/[id] - Get single CCTV camera
@@ -19,17 +20,11 @@ export async function GET(
 
     const { id } = await context.params;
 
-    const camera = await prisma.camera.findUnique({
-      where: { id },
-      include: {
-        project: {
-          select: {
-            id: true,
-            name: true,
-          },
-        },
-      },
-    });
+    // Termasuk cek akses project (CLIENT/ADMINISTRATOR hanya kamera di project-nya)
+    const { user, camera } = await findAccessibleCamera(
+      session.user.email,
+      id
+    );
 
     if (!camera) {
       return NextResponse.json(
@@ -37,12 +32,6 @@ export async function GET(
         { status: 404 }
       );
     }
-
-    // Get user role
-    const user = await prisma.user.findUnique({
-      where: { email: session.user.email },
-      include: { role: true },
-    });
 
     const isAdmin = user?.role?.name === 'ADMINISTRATOR';
 
@@ -59,6 +48,10 @@ export async function GET(
         | 'OFFLINE'
         | 'MAINTENANCE',
       sortOrder: camera.sortOrder,
+      go2rtcStream: camera.go2rtcStream,
+      isapiHost: isAdmin ? camera.isapiHost : undefined,
+      ptzEnabled: camera.ptzEnabled,
+      audioEnabled: camera.audioEnabled,
       project: camera.project,
       createdAt: camera.createdAt,
       updatedAt: camera.updatedAt,
@@ -89,6 +82,7 @@ export async function PATCH(
     const { id } = await context.params;
     const body = await request.json();
     const validatedData = updateCCTVSchema.parse(body);
+    const isAdmin = (session.user.role as string) === 'ADMINISTRATOR';
 
     // Check if camera exists
     const existingCamera = await prisma.camera.findUnique({
@@ -128,6 +122,17 @@ export async function PATCH(
       updateData.status = validatedData.status;
     if (validatedData.projectId !== undefined)
       updateData.projectId = validatedData.projectId;
+    // Field live view hanya dari ADMINISTRATOR; selain itu diabaikan.
+    if (isAdmin) {
+      if (validatedData.go2rtcStream !== undefined)
+        updateData.go2rtcStream = validatedData.go2rtcStream || null;
+      if (validatedData.isapiHost !== undefined)
+        updateData.isapiHost = validatedData.isapiHost || null;
+      if (validatedData.ptzEnabled !== undefined)
+        updateData.ptzEnabled = validatedData.ptzEnabled;
+      if (validatedData.audioEnabled !== undefined)
+        updateData.audioEnabled = validatedData.audioEnabled;
+    }
 
     const camera = await prisma.camera.update({
       where: { id },
@@ -155,6 +160,10 @@ export async function PATCH(
         | 'OFFLINE'
         | 'MAINTENANCE',
       sortOrder: camera.sortOrder,
+      go2rtcStream: camera.go2rtcStream,
+      isapiHost: isAdmin ? camera.isapiHost : undefined,
+      ptzEnabled: camera.ptzEnabled,
+      audioEnabled: camera.audioEnabled,
       project: camera.project,
       createdAt: camera.createdAt,
       updatedAt: camera.updatedAt,

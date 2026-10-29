@@ -19,6 +19,7 @@ import { useCCTVCamera } from '@/hooks/use-cctv';
 import Link from 'next/link';
 import Hls from 'hls.js';
 import { detectStreamType, type StreamType } from '@/lib/stream-utils';
+import { WebRTCPlayer } from '@/components/cctv/webrtc-player';
 
 const withCacheBuster = (url: string) =>
   `${url}${url.includes('?') ? '&' : '?'}cb=${Date.now()}`;
@@ -42,8 +43,15 @@ export default function ViewCCTVPage() {
   const [streamType, setStreamType] = useState<StreamType>('iframe');
   const [hlsReloadKey, setHlsReloadKey] = useState(0);
   const [mjpegReloadKey, setMjpegReloadKey] = useState(0);
+  // Live view WebRTC (go2rtc); jika gagal, kembali ke stream lama (streamUrl).
+  // Disimpan per kamera+stream agar otomatis reset saat kamera berganti.
+  const [webrtcFailedFor, setWebrtcFailedFor] = useState<string | null>(null);
+  const [webrtcReloadKey, setWebrtcReloadKey] = useState(0);
   const { data: camera, isLoading: cameraLoading } = useCCTVCamera(cameraId);
   const isAdmin = session?.user?.role === 'ADMINISTRATOR';
+  const webrtcKey = camera ? `${camera.id}:${camera.go2rtcStream ?? ''}` : '';
+  const webrtcFailed = webrtcFailedFor === webrtcKey;
+  const useWebrtc = Boolean(camera?.go2rtcStream) && !webrtcFailed;
 
   useEffect(() => {
     const handleFullscreenChange = () => {
@@ -114,6 +122,11 @@ export default function ViewCCTVPage() {
     setHasError(false);
     setErrorMessage('');
 
+    if (useWebrtc) {
+      setWebrtcReloadKey((prev) => prev + 1);
+      return;
+    }
+
     if (streamType === 'hls') {
       if (hlsInstanceRef.current) {
         hlsInstanceRef.current.destroy();
@@ -163,6 +176,19 @@ export default function ViewCCTVPage() {
       hlsInstanceRef.current = null;
     }
   }, [camera?.streamUrl]);
+
+
+  const handleWebrtcFatalError = (message: string) => {
+    console.warn('[WebRTC] fallback ke stream lama:', message);
+    setWebrtcFailedFor(webrtcKey);
+    // Player HLS baru ter-mount setelah fallback; picu ulang efek HLS.
+    setHlsReloadKey((prev) => prev + 1);
+  };
+
+  const retryWebrtc = () => {
+    setWebrtcFailedFor(null);
+    setWebrtcReloadKey((prev) => prev + 1);
+  };
 
   useEffect(() => {
     if (streamType !== 'hls' || !camera?.streamUrl) {
@@ -456,6 +482,12 @@ export default function ViewCCTVPage() {
                     Tidak dapat terhubung ke stream kamera saat ini.
                   </p>
                 </div>
+              ) : useWebrtc ? (
+                <WebRTCPlayer
+                  key={`webrtc-${webrtcReloadKey}`}
+                  cameraId={camera.id}
+                  onFatalError={handleWebrtcFatalError}
+                />
               ) : !camera.streamUrl ? (
                 <div className='flex flex-col items-center justify-center text-neutral-500 p-8 text-center'>
                   <AlertCircle className='h-16 w-16 mb-4 text-amber-500/50' />
@@ -530,6 +562,21 @@ export default function ViewCCTVPage() {
               )}
             </div>
           </div>
+
+          {camera.go2rtcStream && webrtcFailed && (
+            <div className='flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800'>
+              <span>
+                Live view WebRTC tidak tersedia, menampilkan stream cadangan.
+              </span>
+              <button
+                onClick={retryWebrtc}
+                className='inline-flex items-center gap-2 rounded-lg border border-amber-300 px-3 py-1.5 font-medium hover:bg-amber-100 transition-colors'
+              >
+                <RotateCcw className='h-4 w-4' />
+                Coba WebRTC lagi
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -590,6 +637,16 @@ export default function ViewCCTVPage() {
                 <p className='text-xs text-[var(--color-muted)]'>Stream URL</p>
                 <code className='block mt-1 p-2 bg-gray-100 rounded text-xs font-mono break-all text-gray-600'>
                   {camera.streamUrl || '-'}
+                </code>
+              </div>
+              <div>
+                <p className='text-xs text-[var(--color-muted)]'>
+                  Stream go2rtc
+                </p>
+                <code className='block mt-1 text-xs font-mono text-gray-500'>
+                  {camera.go2rtcStream || '-'}
+                  {camera.go2rtcStream &&
+                    (useWebrtc ? ' (WebRTC aktif)' : ' (fallback)')}
                 </code>
               </div>
               <div>

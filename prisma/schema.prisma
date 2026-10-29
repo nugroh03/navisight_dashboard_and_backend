@@ -86,6 +86,11 @@ model Camera {
   location    String?  @db.VarChar(255)
   status      String?  @default("OFFLINE") @db.VarChar(50)
   sortOrder   Int      @default(0)
+  // Live view via go2rtc (WebRTC) + kontrol ISAPI (PTZ/audio). Kredensial kamera tidak disimpan di DB.
+  go2rtcStream String?  @db.VarChar(64)
+  isapiHost    String?  @db.VarChar(255)
+  ptzEnabled   Boolean  @default(false)
+  audioEnabled Boolean  @default(false)
   project     Project  @relation(fields: [projectId], references: [id])
   createdAt   DateTime @default(now()) @db.Timestamptz(6)
   updatedAt   DateTime @updatedAt @db.Timestamptz(6)
