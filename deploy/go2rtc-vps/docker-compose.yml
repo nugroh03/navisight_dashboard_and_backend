@@ -1,0 +1,51 @@
+# go2rtc VPS — relay WebRTC untuk dashboard CCTV (Dokploy, tipe Compose, terpisah dari dashboard).
+# Mengambil stream H.264 dari go2rtc lokal (100.89.88.78:8554) lewat Tailscale host VPS,
+# lalu menyajikan WebRTC ke browser di port 8555. Tidak ada transcode di VPS.
+# Variabel diisi di tab Environment Dokploy (lihat .env.example).
+
+services:
+  go2rtc:
+    image: alexxit/go2rtc:1.9.14
+    restart: unless-stopped
+    configs:
+      - source: go2rtc_config
+        target: /config/go2rtc.yaml
+    ports:
+      - "8555:8555/tcp"          # WebRTC (publik)
+      - "8555:8555/udp"          # WebRTC (publik)
+      - "127.0.0.1:1984:1984"    # API hanya dari VPS sendiri (tes via SSH tunnel)
+    networks:
+      - dokploy-network          # dashboard menghubungi http://go2rtc:1984 secara internal
+
+configs:
+  go2rtc_config:
+    # Nilai ${...} diisi oleh docker compose dari Environment Dokploy saat deploy.
+    content: |
+      api:
+        listen: ":1984"
+        username: "${GO2RTC_API_USER}"
+        password: "${GO2RTC_API_PASS}"
+      rtsp:
+        listen: ""
+      srtp:
+        listen: ""
+      webrtc:
+        listen: ":8555"
+        candidates:
+          - ${PUBLIC_IP}:8555
+          - stun:8555
+      log:
+        level: info
+      streams:
+        cam34:  rtsp://${RTSP_USER}:${RTSP_PASS}@100.89.88.78:8554/cam34
+        cam43:  rtsp://${RTSP_USER}:${RTSP_PASS}@100.89.88.78:8554/cam43
+        cam51:  rtsp://${RTSP_USER}:${RTSP_PASS}@100.89.88.78:8554/cam51
+        cam102: rtsp://${RTSP_USER}:${RTSP_PASS}@100.89.88.78:8554/cam102
+        cam106: rtsp://${RTSP_USER}:${RTSP_PASS}@100.89.88.78:8554/cam106
+        cam130: rtsp://${RTSP_USER}:${RTSP_PASS}@100.89.88.78:8554/cam130
+        cam141: rtsp://${RTSP_USER}:${RTSP_PASS}@100.89.88.78:8554/cam141
+        cam170: rtsp://${RTSP_USER}:${RTSP_PASS}@100.89.88.78:8554/cam170
+
+networks:
+  dokploy-network:
+    external: true

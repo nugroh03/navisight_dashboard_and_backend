@@ -43,6 +43,10 @@ export interface CCTV {
   streamUrl: string;
   status: 'ONLINE' | 'OFFLINE' | 'MAINTENANCE';
   sortOrder: number;
+  go2rtcStream?: string | null;
+  isapiHost?: string | null; // hanya dikirim ke ADMINISTRATOR
+  ptzEnabled?: boolean;
+  audioEnabled?: boolean;
   project?: Project;
   createdAt: Date;
   updatedAt: Date;

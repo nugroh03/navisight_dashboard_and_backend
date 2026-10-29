@@ -59,6 +59,10 @@ export async function GET(
         | 'OFFLINE'
         | 'MAINTENANCE',
       sortOrder: camera.sortOrder,
+      go2rtcStream: camera.go2rtcStream,
+      isapiHost: isAdmin ? camera.isapiHost : undefined,
+      ptzEnabled: camera.ptzEnabled,
+      audioEnabled: camera.audioEnabled,
       project: camera.project,
       createdAt: camera.createdAt,
       updatedAt: camera.updatedAt,
@@ -89,6 +93,7 @@ export async function PATCH(
     const { id } = await context.params;
     const body = await request.json();
     const validatedData = updateCCTVSchema.parse(body);
+    const isAdmin = (session.user.role as string) === 'ADMINISTRATOR';
 
     // Check if camera exists
     const existingCamera = await prisma.camera.findUnique({
@@ -128,6 +133,17 @@ export async function PATCH(
       updateData.status = validatedData.status;
     if (validatedData.projectId !== undefined)
       updateData.projectId = validatedData.projectId;
+    // Field live view hanya dari ADMINISTRATOR; selain itu diabaikan.
+    if (isAdmin) {
+      if (validatedData.go2rtcStream !== undefined)
+        updateData.go2rtcStream = validatedData.go2rtcStream || null;
+      if (validatedData.isapiHost !== undefined)
+        updateData.isapiHost = validatedData.isapiHost || null;
+      if (validatedData.ptzEnabled !== undefined)
+        updateData.ptzEnabled = validatedData.ptzEnabled;
+      if (validatedData.audioEnabled !== undefined)
+        updateData.audioEnabled = validatedData.audioEnabled;
+    }
 
     const camera = await prisma.camera.update({
       where: { id },
@@ -155,6 +171,10 @@ export async function PATCH(
         | 'OFFLINE'
         | 'MAINTENANCE',
       sortOrder: camera.sortOrder,
+      go2rtcStream: camera.go2rtcStream,
+      isapiHost: isAdmin ? camera.isapiHost : undefined,
+      ptzEnabled: camera.ptzEnabled,
+      audioEnabled: camera.audioEnabled,
       project: camera.project,
       createdAt: camera.createdAt,
       updatedAt: camera.updatedAt,

@@ -29,6 +29,7 @@ export default function EditCCTVPage() {
     (session?.user?.role as string) === 'ADMINISTRATOR'
       ? RoleName.ADMINISTRATOR
       : RoleName.CLIENT;
+  const isAdmin = userRole === RoleName.ADMINISTRATOR;
 
   const {
     register,
@@ -56,6 +57,10 @@ export default function EditCCTVPage() {
         projectId: camera.projectId ?? '',
         streamUrl: camera.streamUrl ?? '',
         status: statusValue,
+        go2rtcStream: camera.go2rtcStream ?? '',
+        isapiHost: camera.isapiHost ?? '',
+        ptzEnabled: camera.ptzEnabled ?? false,
+        audioEnabled: camera.audioEnabled ?? false,
       });
     }
   }, [camera, reset]);
@@ -293,6 +298,89 @@ export default function EditCCTVPage() {
                   <option value='MAINTENANCE'>Maintenance</option>
                 </select>
               </div>
+
+              {isAdmin && (
+                <div className='space-y-4 rounded-lg border border-[var(--color-border)] p-4'>
+                  <div>
+                    <h2 className='text-sm font-semibold text-[var(--color-text)]'>
+                      Live View (go2rtc)
+                    </h2>
+                    <p className='text-sm text-[var(--color-muted)] mt-0.5'>
+                      Video WebRTC, PTZ, dan mic. Hanya ADMINISTRATOR yang bisa mengubah.
+                    </p>
+                  </div>
+
+                  <div className='space-y-2'>
+                    <label
+                      htmlFor='go2rtcStream'
+                      className='block text-sm font-medium text-[var(--color-text)]'
+                    >
+                      Nama Stream go2rtc
+                    </label>
+                    <input
+                      id='go2rtcStream'
+                      {...register('go2rtcStream')}
+                      placeholder='cam141'
+                      disabled={isSubmitting}
+                      className={`input-field w-full ${
+                        errors.go2rtcStream ? 'border-red-500' : ''
+                      }`}
+                    />
+                    {errors.go2rtcStream && (
+                      <p className='text-xs md:text-sm text-red-600'>
+                        {errors.go2rtcStream.message}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className='space-y-2'>
+                    <label
+                      htmlFor='isapiHost'
+                      className='block text-sm font-medium text-[var(--color-text)]'
+                    >
+                      IP Kamera (ISAPI)
+                    </label>
+                    <input
+                      id='isapiHost'
+                      {...register('isapiHost')}
+                      placeholder='192.168.1.141'
+                      disabled={isSubmitting}
+                      className={`input-field w-full ${
+                        errors.isapiHost ? 'border-red-500' : ''
+                      }`}
+                    />
+                    {errors.isapiHost && (
+                      <p className='text-xs md:text-sm text-red-600'>
+                        {errors.isapiHost.message}
+                      </p>
+                    )}
+                    <p className='text-sm text-[var(--color-muted)]'>
+                      Dipakai untuk PTZ dan mic. Kredensial kamera disimpan di server, bukan di sini.
+                    </p>
+                  </div>
+
+                  <div className='flex flex-col sm:flex-row gap-3 sm:gap-6'>
+                    <label className='inline-flex items-center gap-2 text-sm text-[var(--color-text)]'>
+                      <input
+                        type='checkbox'
+                        {...register('ptzEnabled')}
+                        disabled={isSubmitting}
+                        className='h-4 w-4'
+                      />
+                      Kontrol PTZ
+                    </label>
+                    <label className='inline-flex items-center gap-2 text-sm text-[var(--color-text)]'>
+                      <input
+                        type='checkbox'
+                        {...register('audioEnabled')}
+                        disabled={isSubmitting}
+                        className='h-4 w-4'
+                      />
+                      Mic / audio dua arah
+                    </label>
+                  </div>
+                </div>
+              )}
 
               <div className='flex gap-3 pt-6 border-t border-[var(--color-border)]'>
                 <button

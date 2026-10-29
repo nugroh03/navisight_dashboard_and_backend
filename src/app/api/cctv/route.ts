@@ -96,6 +96,10 @@ export async function GET(request: NextRequest) {
         | 'OFFLINE'
         | 'MAINTENANCE',
       sortOrder: camera.sortOrder,
+      go2rtcStream: camera.go2rtcStream,
+      isapiHost: roleName === 'ADMINISTRATOR' ? camera.isapiHost : undefined,
+      ptzEnabled: camera.ptzEnabled,
+      audioEnabled: camera.audioEnabled,
       project: camera.project,
       createdAt: camera.createdAt,
       updatedAt: camera.updatedAt,
@@ -122,6 +126,7 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
     const validatedData = createCCTVSchema.parse(body);
+    const isAdmin = (session.user.role as string) === 'ADMINISTRATOR';
 
     // Verify project exists
     const project = await prisma.project.findUnique({
@@ -151,6 +156,13 @@ export async function POST(request: NextRequest) {
         status: validatedData.status,
         projectId: validatedData.projectId,
         sortOrder: nextSortOrder,
+        // Field live view hanya dari ADMINISTRATOR; selain itu diabaikan.
+        ...(isAdmin && {
+          go2rtcStream: validatedData.go2rtcStream || null,
+          isapiHost: validatedData.isapiHost || null,
+          ptzEnabled: validatedData.ptzEnabled ?? false,
+          audioEnabled: validatedData.audioEnabled ?? false,
+        }),
       },
       include: {
         project: {
@@ -175,6 +187,10 @@ export async function POST(request: NextRequest) {
         | 'OFFLINE'
         | 'MAINTENANCE',
       sortOrder: camera.sortOrder,
+      go2rtcStream: camera.go2rtcStream,
+      isapiHost: isAdmin ? camera.isapiHost : undefined,
+      ptzEnabled: camera.ptzEnabled,
+      audioEnabled: camera.audioEnabled,
       project: camera.project,
       createdAt: camera.createdAt,
       updatedAt: camera.updatedAt,
