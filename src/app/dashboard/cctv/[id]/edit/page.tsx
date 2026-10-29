@@ -320,7 +320,7 @@ export default function EditCCTVPage() {
                     <input
                       id='go2rtcStream'
                       {...register('go2rtcStream')}
-                      placeholder='cam141'
+                      placeholder='contoh: cam141'
                       disabled={isSubmitting}
                       className={`input-field w-full ${
                         errors.go2rtcStream ? 'border-red-500' : ''
@@ -343,7 +343,7 @@ export default function EditCCTVPage() {
                     <input
                       id='isapiHost'
                       {...register('isapiHost')}
-                      placeholder='192.168.1.141'
+                      placeholder='contoh: 192.168.1.141'
                       disabled={isSubmitting}
                       className={`input-field w-full ${
                         errors.isapiHost ? 'border-red-500' : ''

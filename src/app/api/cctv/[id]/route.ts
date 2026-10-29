@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/auth/config';
 import { prisma } from '@/lib/prisma';
 import { updateCCTVSchema } from '@/lib/validations';
+import { findAccessibleCamera } from '@/lib/camera-access';
 import { z } from 'zod';
 
 // GET /api/cctv/[id] - Get single CCTV camera
@@ -19,17 +20,11 @@ export async function GET(
 
     const { id } = await context.params;
 
-    const camera = await prisma.camera.findUnique({
-      where: { id },
-      include: {
-        project: {
-          select: {
-            id: true,
-            name: true,
-          },
-        },
-      },
-    });
+    // Termasuk cek akses project (CLIENT/ADMINISTRATOR hanya kamera di project-nya)
+    const { user, camera } = await findAccessibleCamera(
+      session.user.email,
+      id
+    );
 
     if (!camera) {
       return NextResponse.json(
@@ -37,12 +32,6 @@ export async function GET(
         { status: 404 }
       );
     }
-
-    // Get user role
-    const user = await prisma.user.findUnique({
-      where: { email: session.user.email },
-      include: { role: true },
-    });
 
     const isAdmin = user?.role?.name === 'ADMINISTRATOR';
 

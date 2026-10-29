@@ -56,8 +56,8 @@ Legenda: `[ ]` belum · `[~]` sedang dikerjakan · `[x]` selesai & terverifikasi
 ### Tahap 4a: Viewer video
 | | Item | Kriteria lulus | Catatan |
 |---|---|---|---|
-| [ ] | Tipe stream `webrtc` di halaman view | Video live tampil di Chrome & Firefox (Linux) | |
-| [ ] | Fallback MSE/HLS | Jika WebRTC gagal, video tetap tampil | |
+| [~] | Tipe stream `webrtc` di halaman view | Video live tampil di Chrome & Firefox (Linux) | `WebRTCPlayer` + `POST /api/cctv/[id]/webrtc` (proxy signaling, cek login & akses project). Uji E2E lokal Chrome headless → go2rtc: signaling 201 `application/sdp`, video 768×432 playing ±4,1 s, `connected` — 2026-10-29. Belum dites di production |
+| [~] | Fallback MSE/HLS | Jika WebRTC gagal, video tetap tampil | Otomatis kembali ke stream lama (HLS Shinobi) setelah 3 percobaan / error konfigurasi; tombol "Coba WebRTC lagi". Belum dites di production |
 | [ ] | Latensi | Delay terukur ≤ ~2 detik | |
 | [ ] | Deploy Rilis 1 | Berjalan di production, rekaman Shinobi tetap normal | |
 

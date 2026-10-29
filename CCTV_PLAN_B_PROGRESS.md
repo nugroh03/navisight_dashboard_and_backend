@@ -159,7 +159,7 @@ sudo rm /etc/sysctl.d/99-tailscale.conf && sudo sysctl -w net.ipv4.ip_forward=0
 | 2026-10-28 | Monitor Shinobi .170 berhenti ±12:39–13:28 dan tidak restart otomatis (rekaman ±50 menit hilang). Kamera sehat; Shinobi mengakses kamera lewat `enp5s0`, bukan Tailscale | User restart monitor dari web Shinobi; 7/7 merekam lagi. Usulan: alert bila perekam berhenti > 10 menit |
 | 2026-10-28 | Rekaman .141 sempat terputus saat kamera di-restart & IP dipindah (troubleshooting Hik-Connect) | Monitor Shinobi kini memakai .141 |
 | 2026-10-28 | Password kamera terlihat di daftar proses (`ps`), karena Shinobi menulis URL RTSP lengkap di argumen ffmpeg | Ganti password bertahap di waktu aman (update Shinobi juga) |
-| 2026-10-28 | Port 3000 dashboard di VPS terbuka publik (tanpa HTTPS/Traefik) | Belum diubah; usulan tutup di firewall VPS |
+| 2026-10-28 | Port 3000 di VPS terbuka publik lewat HTTP. **Koreksi 2026-10-29:** itu panel admin **Dokploy**, bukan dashboard NaviSight; firewall VPS (ufw) tidak aktif | Belum diubah; usulan: akses panel Dokploy lewat domain HTTPS atau batasi port 3000 |
 | 2026-10-28 | `.env` proyek milik root, izin 644 (bisa dibaca semua user) | Usulan: `sudo chown $USER .env && chmod 600 .env` |
 
 **Catatan operasional:**
