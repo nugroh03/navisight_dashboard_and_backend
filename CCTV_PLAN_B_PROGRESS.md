@@ -206,6 +206,29 @@ Perbaikan di `deploy/go2rtc-local/go2rtc.yaml`: input `-flags low_delay -threads
 - Uji: tes lokal (move/stop/auto-stop/goto) OK; user menguji dari UI production (Ruang VIP) — normal. Shinobi tidak terganggu.
 - Ikut di PR #2: dropdown nama stream go2rtc di form, WebRTC 404 langsung fallback ke HLS tanpa retry.
 
+## 6c. Rilis 3: bicara ke kamera (2026-10-31) — .141 berhasil
+
+Status: PR #3 merge ke `main` (`321c991`). User memastikan suara dari dashboard keluar di speaker .141. Baru .141 yang punya stream `_talk`.
+
+- `enabled` di TwoWayAudio hanya menandai sesi terbuka; tidak ada pengaturan kamera yang perlu diubah.
+- go2rtc `IsConsumer` menganggap peer yang hanya mengirim sebagai producer, jadi offer perlu transceiver `recvonly` tambahan.
+- go2rtc VPS: compose sumber **Raw**. `cam141_talk` ditambahkan di `streams:`; `CAM_USER`/`CAM_PASS` di Environment service go2rtc, bukan di dalam YAML.
+- Tambah kamera: satu baris `camX_talk: isapi://...` per kamera, lalu centang "Mic / audio dua arah".
+- Belum: suara kamera ke browser (go2rtc lokal masih `-an`).
+
+## 6d. Insiden Shinobi tidak start (2026-10-31)
+
+- Override `pm2-root` menunggu ping 192.168.1.140 (IP lama kamera). Perangkat di .140 mati, Shinobi tidak start. Diganti ke router 192.168.1.1.
+- Watchdog `shinobi-health.sh` (cron root) me-reboot PC pukul 18:10 & 18:24 karena Shinobi mati.
+- Cron root `30 19 * * * shutdown -h now` dinonaktifkan user (dijadikan komentar, baris 27), PC kini menyala 24 jam.
+- Belum terjawab: PC berkali-kali mati tanpa catatan shutdown (14:44, 17:59, 18:18, 18:37; hari-hari sebelumnya sering ±15:15). Celah rekaman 14:44–18:33 dan ±18:37–18:39.
+
+## 6e. Sambung ulang & pemulihan rekaman (2026-10-31)
+
+- Tombol "Sambung ulang" di `webrtc-player.tsx`: membuat ulang koneksi WebRTC di browser, tidak menyentuh rekaman.
+- `deploy/shinobi-watch/shinobi-watch.sh`: berjalan di **PC lokal** tiap menit (cron.d), bukan di VPS. Kamera online tanpa file baru 12 menit → restart monitor itu saja lewat API Shinobi lokal (`record?reset=1`). Kamera mati dan monitor bukan mode `record` dilewati. Jeda 15 menit, maksimal 4 restart per 6 jam. Tidak me-reboot PC. API key di `/etc/shinobi-watch.env` (600), log `/var/log/shinobi-watch.log`.
+- Diuji dengan server tiruan; API Shinobi asli diuji saat dipasang.
+
 ## 7. Catatan lama — rencana Tahap 2 (sudah dikerjakan)
 
 Rencana awal (dijelaskan & disetujui dulu sebelum dipasang):
