@@ -110,10 +110,12 @@ function IconButton({
 function Sheet({
   labelledBy,
   open,
+  className = '',
   children,
 }: {
   labelledBy: string;
   open: boolean;
+  className?: string;
   children: ReactNode;
 }) {
   // Tanpa latar gelap agar video tetap terlihat saat kamera digerakkan.
@@ -122,7 +124,7 @@ function Sheet({
       role='dialog'
       aria-labelledby={labelledBy}
       hidden={!open}
-      className='fixed inset-x-0 bottom-0 z-[60] max-h-[55vh] overflow-y-auto rounded-t-2xl bg-white pb-[env(safe-area-inset-bottom)] shadow-[0_-8px_30px_rgba(15,23,42,0.18)]'
+      className={`fixed inset-x-0 bottom-0 z-[60] max-h-[55vh] overflow-y-auto rounded-t-2xl bg-white pb-[env(safe-area-inset-bottom)] shadow-[0_-8px_30px_rgba(15,23,42,0.18)] ${className}`}
     >
       {children}
     </div>
@@ -313,7 +315,12 @@ export function CameraMobileControls({
       )}
 
       {ptzEnabled && (
-        <Sheet labelledBy='ptz-sheet-title' open={openSheet === 'ptz'}>
+        // Tinggi tetap agar sheet tidak melompat saat berpindah tab.
+        <Sheet
+          labelledBy='ptz-sheet-title'
+          open={openSheet === 'ptz'}
+          className='h-80'
+        >
           <h3 id='ptz-sheet-title' className='sr-only'>
             Kontrol PTZ
           </h3>
