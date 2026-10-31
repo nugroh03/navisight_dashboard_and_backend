@@ -77,10 +77,10 @@ Legenda: `[ ]` belum · `[~]` sedang dikerjakan · `[x]` selesai & terverifikasi
 
 | | Item | Kriteria lulus | Catatan |
 |---|---|---|---|
-| [ ] | Tahap 0: aktifkan TwoWayAudio di 8 kamera | `enabled=true`, video & rekaman tidak terganggu | Perlu izin user per kamera |
-| [ ] | Sumber `isapi://` di go2rtc | Audio dua arah terdaftar per kamera | |
+| [x] | Tahap 0: cek TwoWayAudio | Sesi bicara bisa dibuka, video & rekaman tidak terganggu | .141: tidak perlu diubah. `enabled` hanya menandai sesi terbuka (open → true, close → false; PUT `enabled=true` tidak menetap). Rekaman .141 tetap jalan, proses sama — 2026-10-31. 7 kamera lain belum dicek |
+| [~] | Sumber `isapi://` di go2rtc | Audio dua arah terdaftar per kamera | `cam141_talk` ditulis di compose VPS, belum di-deploy |
 | [ ] | Audio dari kamera ke browser | Suara lokasi terdengar di dashboard | |
-| [ ] | Push-to-talk | Suara dari browser keluar di speaker kamera | |
+| [~] | Push-to-talk | Suara dari browser keluar di speaker kamera | `TalkButton` + `POST /api/cctv/[id]/talk` (khusus ADMINISTRATOR, `audioEnabled`), belum dites ke kamera |
 | [ ] | HTTPS & izin mic | Browser meminta izin mic & berfungsi di domain production | |
 | [ ] | Uji 8 kamera | Mic berfungsi di semua kamera | |
 | [ ] | Deploy Rilis 3 | Berjalan di production | |
