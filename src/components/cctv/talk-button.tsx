@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Loader2, Mic } from 'lucide-react';
+import { Loader2, Mic, PhoneOff } from 'lucide-react';
 
 interface TalkButtonProps {
   cameraId: string;
@@ -10,8 +10,9 @@ interface TalkButtonProps {
 type TalkState = 'idle' | 'connecting' | 'talking';
 
 const ICE_GATHERING_TIMEOUT_MS = 2_000;
-// Batas satu sesi agar mic tidak terbuka terus bila event lepas tombol hilang.
-const MAX_TALK_MS = 60_000;
+const CONNECT_TIMEOUT_MS = 15_000;
+// Batas satu sesi agar mic tidak terlupa terbuka dan suara terus terkirim ke lokasi.
+const MAX_TALK_MS = 5 * 60_000;
 
 const waitForIceGathering = (pc: RTCPeerConnection) =>
   new Promise<void>((resolve) => {
@@ -31,23 +32,31 @@ const waitForIceGathering = (pc: RTCPeerConnection) =>
     pc.addEventListener('icegatheringstatechange', onChange);
   });
 
-// Tahan untuk bicara: sambungan WebRTC terpisah dari video, hanya mengirim
-// audio, dan dibuka selama tombol ditahan agar mic & sesi kamera tidak tertahan.
+const formatElapsed = (seconds: number) =>
+  `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`;
+
+// Tekan sekali untuk mulai bicara, tekan Akhiri untuk berhenti. Sambungan WebRTC
+// terpisah dari video dan hanya mengirim audio, jadi tidak ikut mendengarkan.
 export function TalkButton({ cameraId }: TalkButtonProps) {
   const [state, setState] = useState<TalkState>('idle');
   const [error, setError] = useState('');
+  const [elapsed, setElapsed] = useState(0);
   const pcRef = useRef<RTCPeerConnection | null>(null);
   const micRef = useRef<MediaStream | null>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Naik setiap mulai/berhenti, agar proses sambung yang sudah usang dibatalkan.
   const sessionRef = useRef(0);
 
-  const stop = useCallback(() => {
-    sessionRef.current += 1;
+  const clearTimer = () => {
     if (timerRef.current) {
       clearTimeout(timerRef.current);
       timerRef.current = null;
     }
+  };
+
+  const stop = useCallback(() => {
+    sessionRef.current += 1;
+    clearTimer();
     micRef.current?.getTracks().forEach((track) => track.stop());
     micRef.current = null;
     if (pcRef.current) {
@@ -63,13 +72,23 @@ export function TalkButton({ cameraId }: TalkButtonProps) {
     setError('');
     const session = sessionRef.current;
     const isStale = () => session !== sessionRef.current;
+    const fail = (message: string) => {
+      if (isStale()) return;
+      stop();
+      setError(message);
+    };
 
     if (!navigator.mediaDevices?.getUserMedia) {
       setError('Browser hanya mengizinkan mic lewat HTTPS.');
       return;
     }
 
+    setElapsed(0);
     setState('connecting');
+    timerRef.current = setTimeout(
+      () => fail('Waktu sambungan mic habis'),
+      CONNECT_TIMEOUT_MS
+    );
     try {
       const mic = await navigator.mediaDevices.getUserMedia({
         audio: { echoCancellation: true, noiseSuppression: true },
@@ -89,10 +108,16 @@ export function TalkButton({ cameraId }: TalkButtonProps) {
       pc.onconnectionstatechange = () => {
         if (isStale()) return;
         if (pc.connectionState === 'connected') {
+          clearTimer();
+          timerRef.current = setTimeout(() => {
+            fail('Sesi bicara berakhir otomatis setelah 5 menit');
+          }, MAX_TALK_MS);
           setState('talking');
-        } else if (pc.connectionState === 'failed') {
-          stop();
-          setError('Sambungan audio gagal');
+        } else if (
+          pc.connectionState === 'failed' ||
+          pc.connectionState === 'disconnected'
+        ) {
+          fail('Sambungan mic terputus');
         }
       };
 
@@ -109,18 +134,15 @@ export function TalkButton({ cameraId }: TalkButtonProps) {
         const data = (await response.json().catch(() => null)) as {
           message?: string;
         } | null;
-        throw new Error(data?.message ?? 'Gagal menyambungkan audio');
+        throw new Error(data?.message ?? 'Gagal menyambungkan mic');
       }
 
       const answer = await response.text();
       if (isStale()) return;
       await pc.setRemoteDescription({ type: 'answer', sdp: answer });
-      timerRef.current = setTimeout(stop, MAX_TALK_MS);
     } catch (err) {
-      if (isStale()) return;
-      stop();
       const name = (err as Error).name;
-      setError(
+      fail(
         name === 'NotAllowedError'
           ? 'Izin mic ditolak di browser'
           : name === 'NotFoundError'
@@ -130,16 +152,24 @@ export function TalkButton({ cameraId }: TalkButtonProps) {
     }
   };
 
-  // Lepaskan mic bila tab disembunyikan, jendela kehilangan fokus, atau komponen dilepas.
+  useEffect(() => {
+    if (state !== 'talking') return;
+    const startedAt = Date.now();
+    const interval = setInterval(
+      () => setElapsed(Math.floor((Date.now() - startedAt) / 1000)),
+      1000
+    );
+    return () => clearInterval(interval);
+  }, [state]);
+
+  // Mic jangan tetap terbuka bila halaman ditinggalkan atau tab disembunyikan.
   useEffect(() => {
     const handleVisibility = () => {
       if (document.visibilityState === 'hidden') stop();
     };
-    window.addEventListener('blur', stop);
     window.addEventListener('pagehide', stop);
     document.addEventListener('visibilitychange', handleVisibility);
     return () => {
-      window.removeEventListener('blur', stop);
       window.removeEventListener('pagehide', stop);
       document.removeEventListener('visibilitychange', handleVisibility);
       stop();
@@ -152,35 +182,45 @@ export function TalkButton({ cameraId }: TalkButtonProps) {
         <Mic className='h-4 w-4 text-[var(--color-primary)]' />
         Bicara ke Kamera
       </h3>
-      <button
-        type='button'
-        onPointerDown={(event) => {
-          event.currentTarget.setPointerCapture(event.pointerId);
-          void start();
-        }}
-        onPointerUp={stop}
-        onPointerCancel={stop}
-        onLostPointerCapture={stop}
-        onContextMenu={(event) => event.preventDefault()}
-        className={`w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl border text-sm font-medium transition-colors select-none touch-none ${
-          state === 'talking'
-            ? 'bg-red-600 border-red-600 text-white'
-            : state === 'connecting'
-              ? 'bg-amber-500 border-amber-500 text-white'
-              : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'
-        }`}
-      >
-        {state === 'connecting' ? (
-          <Loader2 className='h-4 w-4 animate-spin' />
-        ) : (
+      {state === 'idle' ? (
+        <button
+          type='button'
+          onClick={() => void start()}
+          className='w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl border border-gray-200 bg-white text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50'
+        >
           <Mic className='h-4 w-4' />
-        )}
-        {state === 'talking'
-          ? 'Silakan bicara... (lepas untuk berhenti)'
-          : state === 'connecting'
-            ? 'Menyambungkan, tetap tahan...'
-            : 'Tahan untuk bicara'}
-      </button>
+          Mulai bicara
+        </button>
+      ) : (
+        <div className='flex gap-2'>
+          <div
+            role='status'
+            className={`flex-1 min-w-0 inline-flex items-center justify-center gap-2 px-3 py-3 rounded-xl text-sm font-medium text-white ${
+              state === 'talking' ? 'bg-red-600' : 'bg-amber-500'
+            }`}
+          >
+            {state === 'talking' ? (
+              <>
+                <Mic className='h-4 w-4 shrink-0 animate-pulse' />
+                Mic aktif · {formatElapsed(elapsed)}
+              </>
+            ) : (
+              <>
+                <Loader2 className='h-4 w-4 shrink-0 animate-spin' />
+                Menyambungkan...
+              </>
+            )}
+          </div>
+          <button
+            type='button'
+            onClick={stop}
+            className='inline-flex shrink-0 items-center gap-1.5 px-4 py-3 rounded-xl border border-red-300 bg-white text-sm font-semibold text-red-600 transition-colors hover:bg-red-50'
+          >
+            <PhoneOff className='h-4 w-4' />
+            Akhiri
+          </button>
+        </div>
+      )}
       {error && <p className='text-sm text-red-600'>{error}</p>}
     </div>
   );
