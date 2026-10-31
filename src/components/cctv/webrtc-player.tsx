@@ -1,12 +1,15 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Loader2, Radio, RefreshCw } from 'lucide-react';
 
 interface WebRTCPlayerProps {
   cameraId: string;
   /** Dipanggil saat WebRTC gagal setelah semua percobaan ulang (untuk fallback ke HLS). */
   onFatalError?: (message: string) => void;
+  /** Tempat bilah status di luar area video, agar video tetap penuh. */
+  statusBarContainer?: HTMLElement | null;
 }
 
 type PlayerState = 'connecting' | 'live' | 'reconnecting';
@@ -34,7 +37,11 @@ const waitForIceGathering = (pc: RTCPeerConnection) =>
     pc.addEventListener('icegatheringstatechange', onChange);
   });
 
-export function WebRTCPlayer({ cameraId, onFatalError }: WebRTCPlayerProps) {
+export function WebRTCPlayer({
+  cameraId,
+  onFatalError,
+  statusBarContainer,
+}: WebRTCPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const pcRef = useRef<RTCPeerConnection | null>(null);
   const retriesRef = useRef(0);
@@ -168,48 +175,49 @@ export function WebRTCPlayer({ cameraId, onFatalError }: WebRTCPlayerProps) {
     void connect();
   };
 
-  // Status & tombol di bilah bawah video agar tidak menutupi jam kamera.
-  return (
-    <div className='flex h-full w-full flex-col bg-black'>
-      <div className='relative min-h-0 flex-1'>
-        <video
-          ref={videoRef}
-          className='h-full w-full object-contain bg-black'
-          muted
-          autoPlay
-          playsInline
-          onPlaying={handlePlaying}
+  const statusBar = (
+    <div className='flex items-center justify-between gap-3 text-xs text-[var(--color-muted)]'>
+      <span className='inline-flex items-center gap-1.5 font-medium'>
+        <Radio
+          className={`h-3 w-3 ${state === 'live' ? 'text-red-500' : 'text-slate-400'}`}
         />
+        {state === 'live' ? 'LIVE · WebRTC' : 'Menyambungkan...'}
+      </span>
+      <button
+        type='button'
+        onClick={handleReconnect}
+        disabled={state === 'connecting'}
+        className='inline-flex items-center gap-1.5 rounded-lg border border-[var(--color-border)] bg-white px-2.5 py-1.5 font-medium text-[var(--color-text)] transition-colors hover:bg-slate-50 disabled:opacity-50'
+      >
+        <RefreshCw className='h-3 w-3' />
+        Sambung ulang
+      </button>
+    </div>
+  );
 
-        {state !== 'live' && (
-          <div className='absolute inset-0 flex flex-col items-center justify-center gap-3 text-neutral-300'>
-            <Loader2 className='h-8 w-8 animate-spin' />
-            <p className='text-sm'>
-              {state === 'reconnecting'
-                ? 'Menyambungkan ulang...'
-                : 'Menghubungkan live view...'}
-            </p>
-          </div>
-        )}
-      </div>
+  return (
+    <div className='relative h-full w-full bg-black'>
+      <video
+        ref={videoRef}
+        className='h-full w-full object-contain bg-black'
+        muted
+        autoPlay
+        playsInline
+        onPlaying={handlePlaying}
+      />
 
-      <div className='flex shrink-0 items-center justify-between gap-3 bg-neutral-900 px-3 py-1.5 text-xs text-neutral-300'>
-        <span className='inline-flex items-center gap-1.5 font-medium'>
-          <Radio
-            className={`h-3 w-3 ${state === 'live' ? 'text-red-500' : 'text-neutral-500'}`}
-          />
-          {state === 'live' ? 'LIVE · WebRTC' : 'Menyambungkan...'}
-        </span>
-        <button
-          type='button'
-          onClick={handleReconnect}
-          disabled={state === 'connecting'}
-          className='inline-flex items-center gap-1.5 rounded-md border border-white/15 px-2.5 py-1 font-medium text-white transition-colors hover:bg-white/10 disabled:opacity-50'
-        >
-          <RefreshCw className='h-3 w-3' />
-          Sambung ulang
-        </button>
-      </div>
+      {state !== 'live' && (
+        <div className='absolute inset-0 flex flex-col items-center justify-center gap-3 text-neutral-300'>
+          <Loader2 className='h-8 w-8 animate-spin' />
+          <p className='text-sm'>
+            {state === 'reconnecting'
+              ? 'Menyambungkan ulang...'
+              : 'Menghubungkan live view...'}
+          </p>
+        </div>
+      )}
+
+      {statusBarContainer && createPortal(statusBar, statusBarContainer)}
     </div>
   );
 }

@@ -51,6 +51,7 @@ export default function ViewCCTVPage() {
   // Disimpan per kamera+stream agar otomatis reset saat kamera berganti.
   const [webrtcFailedFor, setWebrtcFailedFor] = useState<string | null>(null);
   const [webrtcReloadKey, setWebrtcReloadKey] = useState(0);
+  const [statusBarEl, setStatusBarEl] = useState<HTMLDivElement | null>(null);
   const { data: camera, isLoading: cameraLoading } = useCCTVCamera(cameraId);
   const isAdmin = session?.user?.role === 'ADMINISTRATOR';
   const webrtcKey = camera ? `${camera.id}:${camera.go2rtcStream ?? ''}` : '';
@@ -491,6 +492,7 @@ export default function ViewCCTVPage() {
                   key={`webrtc-${webrtcReloadKey}`}
                   cameraId={camera.id}
                   onFatalError={handleWebrtcFatalError}
+                  statusBarContainer={statusBarEl}
                 />
               ) : !camera.streamUrl ? (
                 <div className='flex flex-col items-center justify-center text-neutral-500 p-8 text-center'>
@@ -566,6 +568,8 @@ export default function ViewCCTVPage() {
               )}
             </div>
           </div>
+
+          <div ref={setStatusBarEl} className='px-1 empty:hidden' />
 
           {camera.go2rtcStream && webrtcFailed && (
             <div className='flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800'>
