@@ -15,7 +15,11 @@ import { useCCTVPtzPresets } from '@/hooks/use-cctv';
 
 interface PtzControlsProps {
   cameraId: string;
+  /** Tab untuk bottom sheet mobile; tanpa ini semua bagian tampil dalam satu kartu. */
+  sheetTab?: PtzSheetTab;
 }
+
+export type PtzSheetTab = 'control' | 'preset' | 'speed';
 
 type Vector = { pan: number; tilt: number; zoom: number };
 
@@ -30,7 +34,7 @@ const SPEEDS = {
 
 type Speed = keyof typeof SPEEDS;
 
-export function PtzControls({ cameraId }: PtzControlsProps) {
+export function PtzControls({ cameraId, sheetTab }: PtzControlsProps) {
   const [speed, setSpeed] = useState<Speed>('normal');
   const [activeKey, setActiveKey] = useState<string | null>(null);
   const [error, setError] = useState('');
@@ -141,6 +145,106 @@ export function PtzControls({ cameraId }: PtzControlsProps) {
     </button>
   );
 
+  const directionPad = (
+    <div className='grid grid-cols-3 gap-2'>
+      <span />
+      {holdButton('up', { pan: 0, tilt: s, zoom: 0 }, 'Atas', <ArrowUp className='h-5 w-5' />)}
+      <span />
+      {holdButton('left', { pan: -s, tilt: 0, zoom: 0 }, 'Kiri', <ArrowLeft className='h-5 w-5' />)}
+      <span className='h-12 w-12 flex items-center justify-center text-xs text-[var(--color-muted)]'>
+        tahan
+      </span>
+      {holdButton('right', { pan: s, tilt: 0, zoom: 0 }, 'Kanan', <ArrowRight className='h-5 w-5' />)}
+      <span />
+      {holdButton('down', { pan: 0, tilt: -s, zoom: 0 }, 'Bawah', <ArrowDown className='h-5 w-5' />)}
+      <span />
+    </div>
+  );
+
+  const zoomButtons = (
+    <>
+      {holdButton('zoom-in', { pan: 0, tilt: 0, zoom: s }, 'Zoom in', <ZoomIn className='h-5 w-5' />)}
+      {holdButton('zoom-out', { pan: 0, tilt: 0, zoom: -s }, 'Zoom out', <ZoomOut className='h-5 w-5' />)}
+    </>
+  );
+
+  const presetPicker = presetsLoading ? (
+    <p className='text-sm text-[var(--color-muted)]'>Memuat preset...</p>
+  ) : presets && presets.length > 0 ? (
+    <div className='flex gap-2'>
+      <select
+        value={presetId}
+        onChange={(event) => setPresetId(event.target.value)}
+        className='flex-1 min-w-0 px-2 py-2 border border-[var(--color-border)] bg-white text-[var(--color-text)] rounded-[var(--radius-md)] text-sm'
+      >
+        <option value=''>Pilih preset</option>
+        {presets.map((preset) => (
+          <option key={preset.id} value={preset.id}>
+            {preset.name}
+          </option>
+        ))}
+      </select>
+      <button
+        type='button'
+        onClick={goToPreset}
+        disabled={!presetId}
+        className='inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium border border-[var(--color-border)] rounded-lg hover:bg-gray-50 disabled:opacity-50'
+      >
+        <Navigation className='h-4 w-4' />
+        Ke preset
+      </button>
+    </div>
+  ) : (
+    <p className='text-sm text-[var(--color-muted)]'>
+      Belum ada preset di kamera ini.
+    </p>
+  );
+
+  if (sheetTab) {
+    return (
+      <div className='space-y-4'>
+        {sheetTab === 'control' && (
+          <div className='flex items-center justify-center gap-8'>
+            {directionPad}
+            <div className='flex flex-col gap-2'>{zoomButtons}</div>
+          </div>
+        )}
+        {sheetTab === 'preset' && presetPicker}
+        {sheetTab === 'speed' && (
+          <div
+            role='radiogroup'
+            aria-label='Kecepatan PTZ'
+            className='grid grid-cols-3 gap-2'
+          >
+            {(
+              [
+                ['slow', 'Lambat'],
+                ['normal', 'Sedang'],
+                ['fast', 'Cepat'],
+              ] as const
+            ).map(([value, label]) => (
+              <button
+                key={value}
+                type='button'
+                role='radio'
+                aria-checked={speed === value}
+                onClick={() => setSpeed(value)}
+                className={`h-11 rounded-xl border text-sm font-medium transition-colors ${
+                  speed === value
+                    ? 'bg-[var(--color-primary)] border-[var(--color-primary)] text-white'
+                    : 'bg-white border-gray-200 text-gray-700'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
+        {error && <p className='text-sm text-red-600'>{error}</p>}
+      </div>
+    );
+  }
+
   return (
     <div className='card p-5 space-y-4'>
       <div className='flex items-center justify-between gap-3'>
@@ -161,58 +265,13 @@ export function PtzControls({ cameraId }: PtzControlsProps) {
       </div>
 
       <div className='flex flex-col sm:flex-row items-center gap-6'>
-        <div className='grid grid-cols-3 gap-2'>
-          <span />
-          {holdButton('up', { pan: 0, tilt: s, zoom: 0 }, 'Atas', <ArrowUp className='h-5 w-5' />)}
-          <span />
-          {holdButton('left', { pan: -s, tilt: 0, zoom: 0 }, 'Kiri', <ArrowLeft className='h-5 w-5' />)}
-          <span className='h-12 w-12 flex items-center justify-center text-xs text-[var(--color-muted)]'>
-            tahan
-          </span>
-          {holdButton('right', { pan: s, tilt: 0, zoom: 0 }, 'Kanan', <ArrowRight className='h-5 w-5' />)}
-          <span />
-          {holdButton('down', { pan: 0, tilt: -s, zoom: 0 }, 'Bawah', <ArrowDown className='h-5 w-5' />)}
-          <span />
-        </div>
+        {directionPad}
 
-        <div className='flex sm:flex-col gap-2'>
-          {holdButton('zoom-in', { pan: 0, tilt: 0, zoom: s }, 'Zoom in', <ZoomIn className='h-5 w-5' />)}
-          {holdButton('zoom-out', { pan: 0, tilt: 0, zoom: -s }, 'Zoom out', <ZoomOut className='h-5 w-5' />)}
-        </div>
+        <div className='flex sm:flex-col gap-2'>{zoomButtons}</div>
 
         <div className='flex-1 w-full space-y-2'>
           <p className='text-xs text-[var(--color-muted)]'>Preset</p>
-          {presetsLoading ? (
-            <p className='text-sm text-[var(--color-muted)]'>Memuat preset...</p>
-          ) : presets && presets.length > 0 ? (
-            <div className='flex gap-2'>
-              <select
-                value={presetId}
-                onChange={(event) => setPresetId(event.target.value)}
-                className='flex-1 px-2 py-2 border border-[var(--color-border)] bg-white text-[var(--color-text)] rounded-[var(--radius-md)] text-sm'
-              >
-                <option value=''>Pilih preset</option>
-                {presets.map((preset) => (
-                  <option key={preset.id} value={preset.id}>
-                    {preset.name}
-                  </option>
-                ))}
-              </select>
-              <button
-                type='button'
-                onClick={goToPreset}
-                disabled={!presetId}
-                className='inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium border border-[var(--color-border)] rounded-lg hover:bg-gray-50 disabled:opacity-50'
-              >
-                <Navigation className='h-4 w-4' />
-                Ke preset
-              </button>
-            </div>
-          ) : (
-            <p className='text-sm text-[var(--color-muted)]'>
-              Belum ada preset di kamera ini.
-            </p>
-          )}
+          {presetPicker}
         </div>
       </div>
 

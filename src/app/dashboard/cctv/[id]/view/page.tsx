@@ -23,6 +23,7 @@ import { WebRTCPlayer } from '@/components/cctv/webrtc-player';
 import { PtzControls } from '@/components/cctv/ptz-controls';
 import { ListenButton } from '@/components/cctv/listen-button';
 import { TalkButton } from '@/components/cctv/talk-button';
+import { CameraMobileControls } from '@/components/cctv/camera-mobile-controls';
 
 const withCacheBuster = (url: string) =>
   `${url}${url.includes('?') ? '&' : '?'}cb=${Date.now()}`;
@@ -581,16 +582,32 @@ export default function ViewCCTVPage() {
             </div>
           )}
 
-          {isAdmin && camera.ptzEnabled && camera.isapiHost && (
-            <PtzControls cameraId={camera.id} />
-          )}
-
-          {isAdmin && camera.audioEnabled && camera.go2rtcStream && (
-            <div className='grid grid-cols-1 gap-4 sm:grid-cols-2'>
-              <ListenButton cameraId={camera.id} />
-              <TalkButton cameraId={camera.id} />
+          {/* Mobile: ikon di bawah video dengan bottom sheet. Desktop: kartu. */}
+          {isAdmin && (
+            <div className='md:hidden'>
+              <CameraMobileControls
+                cameraId={camera.id}
+                audioEnabled={Boolean(
+                  camera.audioEnabled && camera.go2rtcStream
+                )}
+                ptzEnabled={Boolean(camera.ptzEnabled && camera.isapiHost)}
+                videoRef={playerContainerRef}
+              />
             </div>
           )}
+
+          <div className='hidden md:block space-y-4'>
+            {isAdmin && camera.ptzEnabled && camera.isapiHost && (
+              <PtzControls cameraId={camera.id} />
+            )}
+
+            {isAdmin && camera.audioEnabled && camera.go2rtcStream && (
+              <div className='grid grid-cols-1 gap-4 sm:grid-cols-2'>
+                <ListenButton cameraId={camera.id} />
+                <TalkButton cameraId={camera.id} />
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
