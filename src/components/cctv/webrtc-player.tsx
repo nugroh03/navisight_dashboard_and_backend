@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Loader2, Radio } from 'lucide-react';
+import { Loader2, Radio, RefreshCw } from 'lucide-react';
 
 interface WebRTCPlayerProps {
   cameraId: string;
@@ -162,6 +162,12 @@ export function WebRTCPlayer({ cameraId, onFatalError }: WebRTCPlayerProps) {
     setState('live');
   };
 
+  const handleReconnect = () => {
+    retriesRef.current = 0;
+    setState('connecting');
+    void connect();
+  };
+
   return (
     <div className='relative h-full w-full bg-black'>
       <video
@@ -187,6 +193,17 @@ export function WebRTCPlayer({ cameraId, onFatalError }: WebRTCPlayerProps) {
           <Radio className='h-3 w-3 text-red-500' />
           LIVE · WebRTC
         </span>
+      )}
+
+      {state !== 'connecting' && (
+        <button
+          type='button'
+          onClick={handleReconnect}
+          className='absolute right-3 top-3 inline-flex items-center gap-1.5 rounded-full bg-black/60 px-2.5 py-1 text-xs font-medium text-white hover:bg-black/80'
+        >
+          <RefreshCw className='h-3 w-3' />
+          Sambung ulang
+        </button>
       )}
     </div>
   );
