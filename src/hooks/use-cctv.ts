@@ -1,6 +1,9 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import type { CCTV } from '@/types';
 
+// Status online/offline kamera dicek server; muat ulang berkala agar tampilan mengikuti.
+const CAMERA_STATUS_REFRESH_MS = 30_000;
+
 // Fetch all CCTV cameras
 export function useCCTV(projectId?: string) {
   return useQuery({
@@ -13,6 +16,7 @@ export function useCCTV(projectId?: string) {
       }
       return response.json() as Promise<CCTV[]>;
     },
+    refetchInterval: CAMERA_STATUS_REFRESH_MS,
   });
 }
 
@@ -28,6 +32,7 @@ export function useCCTVCamera(id: string) {
       return response.json() as Promise<CCTV>;
     },
     enabled: !!id,
+    refetchInterval: CAMERA_STATUS_REFRESH_MS,
   });
 }
 
