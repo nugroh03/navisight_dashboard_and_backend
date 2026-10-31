@@ -1,17 +1,30 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSession } from 'next-auth/react';
-import { AlertTriangle, DatabaseBackup, Download, Loader2, Trash2 } from 'lucide-react';
+import {
+  AlertTriangle,
+  CalendarClock,
+  CheckCircle2,
+  Cloud,
+  DatabaseBackup,
+  Download,
+  HardDrive,
+  Loader2,
+  Trash2,
+  XCircle,
+} from 'lucide-react';
+
+type BackupItem = {
+  name: string;
+  size: number;
+  createdAt: string;
+  type: 'auto' | 'manual';
+};
 
 type BackupData = {
-  backups: {
-    name: string;
-    size: number;
-    createdAt: string;
-    type: 'auto' | 'manual';
-  }[];
+  backups: BackupItem[];
   listError: string | null;
   schedule: {
     enabled: boolean;
@@ -30,6 +43,8 @@ type BackupData = {
   lastFailure: string | null;
 };
 
+type ScheduleForm = { enabled: boolean; time: string; keep: number };
+
 type StorageForm = {
   accountId: string;
   bucket: string;
@@ -37,12 +52,28 @@ type StorageForm = {
   secretAccessKey: string;
 };
 
-type ScheduleForm = { enabled: boolean; time: string; keep: number };
+type Feedback = { ok: boolean; text: string } | null;
+
+const FIELD_CLASS =
+  'block h-11 w-full rounded-xl border border-[var(--color-border)] bg-white px-3.5 text-sm text-[var(--color-text)] placeholder:text-slate-400 transition focus:border-[var(--color-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/20';
+const SECONDARY_BUTTON_CLASS =
+  'inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-[var(--color-border)] bg-white px-4 text-sm font-semibold text-[var(--color-text)] transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50';
+const PRIMARY_BUTTON_CLASS =
+  'inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[var(--color-primary-strong)] px-4 text-sm font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50';
 
 const formatSize = (bytes: number) =>
   bytes >= 1024 ** 3
     ? `${(bytes / 1024 ** 3).toFixed(1)} GB`
     : `${(bytes / 1024 ** 2).toFixed(1)} MB`;
+
+const formatDate = (value: string) =>
+  new Date(value).toLocaleString('id-ID', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
 
 const sendJson = async (method: string, body?: unknown, path = '') => {
   const response = await fetch(`/api/backups${path}`, {
@@ -58,15 +89,98 @@ const sendJson = async (method: string, body?: unknown, path = '') => {
   }
 };
 
+function Field({
+  label,
+  hint,
+  children,
+}: {
+  label: string;
+  hint?: string;
+  children: ReactNode;
+}) {
+  return (
+    <label className='block space-y-1.5'>
+      <span className='block text-sm font-medium text-[var(--color-text)]'>
+        {label}
+      </span>
+      {children}
+      {hint && (
+        <span className='block text-xs text-[var(--color-muted)]'>{hint}</span>
+      )}
+    </label>
+  );
+}
+
+function FeedbackText({ feedback }: { feedback: Feedback }) {
+  if (!feedback) return null;
+  const Icon = feedback.ok ? CheckCircle2 : XCircle;
+  return (
+    <p
+      role='status'
+      className={`flex items-start gap-2 text-sm ${feedback.ok ? 'text-emerald-700' : 'text-red-600'}`}
+    >
+      <Icon className='mt-0.5 h-4 w-4 shrink-0' />
+      {feedback.text}
+    </p>
+  );
+}
+
+function Banner({
+  tone,
+  children,
+}: {
+  tone: 'warning' | 'error';
+  children: ReactNode;
+}) {
+  const toneClass =
+    tone === 'warning'
+      ? 'border-amber-200 bg-amber-50 text-amber-900'
+      : 'border-red-200 bg-red-50 text-red-800';
+  return (
+    <div
+      className={`flex items-start gap-3 rounded-xl border px-4 py-3 text-sm ${toneClass}`}
+    >
+      <AlertTriangle className='mt-0.5 h-4 w-4 shrink-0' />
+      <span>{children}</span>
+    </div>
+  );
+}
+
+function Stat({
+  icon,
+  label,
+  value,
+  detail,
+}: {
+  icon: ReactNode;
+  label: string;
+  value: string;
+  detail: string;
+}) {
+  return (
+    <div className='card flex items-center gap-4 p-5'>
+      <div className='flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[var(--color-primary)]/10 text-[var(--color-primary)]'>
+        {icon}
+      </div>
+      <div className='min-w-0'>
+        <p className='text-xs font-medium text-[var(--color-muted)]'>{label}</p>
+        <p className='font-semibold text-[var(--color-text)]'>{value}</p>
+        <p className='text-xs text-[var(--color-muted)]'>{detail}</p>
+      </div>
+    </div>
+  );
+}
+
 export default function BackupPage() {
   const { data: session, status } = useSession();
   const isAdmin = session?.user?.role === 'ADMINISTRATOR';
   const queryClient = useQueryClient();
   // Null berarti form mengikuti nilai tersimpan; terisi setelah pengguna mengubahnya.
-  const [edits, setEdits] = useState<ScheduleForm | null>(null);
+  const [scheduleEdits, setScheduleEdits] = useState<ScheduleForm | null>(null);
   const [storageEdits, setStorageEdits] = useState<StorageForm | null>(null);
-  const [storageNotice, setStorageNotice] = useState('');
-  const [notice, setNotice] = useState('');
+  const [scheduleFeedback, setScheduleFeedback] = useState<Feedback>(null);
+  const [storageFeedback, setStorageFeedback] = useState<Feedback>(null);
+  const [listFeedback, setListFeedback] = useState<Feedback>(null);
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['backups'],
@@ -79,345 +193,419 @@ export default function BackupPage() {
     refetchInterval: (query) => (query.state.data?.running ? 3_000 : 30_000),
   });
 
-  const form: ScheduleForm = edits ??
-    (data && {
-      enabled: data.schedule.enabled,
-      time: data.schedule.time,
-      keep: data.schedule.keep,
-    }) ?? { enabled: true, time: '02:00', keep: 14 };
-  const setForm = setEdits;
+  const refresh = () =>
+    queryClient.invalidateQueries({ queryKey: ['backups'] });
 
-  const storageForm: StorageForm = storageEdits ?? {
+  const schedule: ScheduleForm = scheduleEdits ?? {
+    enabled: data?.schedule.enabled ?? true,
+    time: data?.schedule.time ?? '02:00',
+    keep: data?.schedule.keep ?? 14,
+  };
+  const storage: StorageForm = storageEdits ?? {
     accountId: data?.storage.accountId ?? '',
     bucket: data?.storage.bucket ?? '',
     accessKeyId: data?.storage.accessKeyId ?? '',
     secretAccessKey: '',
   };
   const setStorageField = (field: keyof StorageForm, value: string) =>
-    setStorageEdits({ ...storageForm, [field]: value });
+    setStorageEdits({ ...storage, [field]: value });
 
-  const refresh = () =>
-    queryClient.invalidateQueries({ queryKey: ['backups'] });
-  const onError = (err: Error) => setNotice(err.message);
-
-  const saveSettings = useMutation({
-    mutationFn: () => sendJson('PATCH', form),
+  const saveSchedule = useMutation({
+    mutationFn: () => sendJson('PATCH', schedule),
     onSuccess: () => {
-      setNotice('Jadwal tersimpan.');
-      setEdits(null);
+      setScheduleFeedback({ ok: true, text: 'Jadwal tersimpan.' });
+      setScheduleEdits(null);
       void refresh();
     },
-    onError,
+    onError: (err: Error) =>
+      setScheduleFeedback({ ok: false, text: err.message }),
   });
-  const onStorageError = (err: Error) => setStorageNotice(err.message);
   const testStorage = useMutation({
-    mutationFn: () =>
-      sendJson('POST', storageForm, '/storage/test'),
-    onSuccess: () => setStorageNotice('Koneksi berhasil: bucket bisa ditulis dan dibaca.'),
-    onError: onStorageError,
+    mutationFn: () => sendJson('POST', storage, '/storage/test'),
+    onSuccess: () =>
+      setStorageFeedback({
+        ok: true,
+        text: 'Koneksi berhasil. Bucket bisa ditulis, dibaca, dan dihapus.',
+      }),
+    onError: (err: Error) =>
+      setStorageFeedback({ ok: false, text: err.message }),
   });
   const saveStorage = useMutation({
-    mutationFn: () => sendJson('PUT', storageForm, '/storage'),
+    mutationFn: () => sendJson('PUT', storage, '/storage'),
     onSuccess: () => {
-      setStorageNotice('Penyimpanan tersimpan.');
+      setStorageFeedback({ ok: true, text: 'Penyimpanan tersimpan.' });
       setStorageEdits(null);
       void refresh();
     },
-    onError: onStorageError,
+    onError: (err: Error) =>
+      setStorageFeedback({ ok: false, text: err.message }),
   });
   const startBackup = useMutation({
     mutationFn: () => sendJson('POST'),
     onSuccess: () => {
-      setNotice('Backup dimulai.');
+      setListFeedback({ ok: true, text: 'Backup dimulai.' });
       void refresh();
     },
-    onError,
+    onError: (err: Error) => setListFeedback({ ok: false, text: err.message }),
   });
   const removeBackup = useMutation({
     mutationFn: (name: string) =>
       sendJson('DELETE', undefined, `/${encodeURIComponent(name)}`),
     onSuccess: () => {
-      setNotice('Backup dihapus.');
+      setListFeedback({ ok: true, text: 'Backup dihapus.' });
       void refresh();
     },
-    onError,
+    onError: (err: Error) => setListFeedback({ ok: false, text: err.message }),
   });
 
   if (status === 'loading' || (isAdmin && isLoading)) {
     return (
-      <div className='flex items-center justify-center h-64'>
+      <div className='flex h-64 items-center justify-center'>
         <Loader2 className='h-8 w-8 animate-spin text-[var(--color-primary)]' />
       </div>
     );
   }
   if (!isAdmin) {
     return (
-      <p className='text-center py-12 text-red-600'>
+      <p className='py-12 text-center text-red-600'>
         Halaman ini khusus ADMINISTRATOR.
       </p>
     );
   }
   if (error || !data) {
     return (
-      <p className='text-center py-12 text-red-600'>
+      <p className='py-12 text-center text-red-600'>
         Gagal memuat data backup.
       </p>
     );
   }
 
+  const latest = data.backups[0];
+  const storageReady = data.storage.hasSecret;
+  const canBackup = storageReady && !data.running && !startBackup.isPending;
+
   return (
-    <div className='space-y-6'>
-      <div className='card border-[var(--color-border)] bg-white p-8 shadow-lg'>
-        <p className='text-sm font-semibold uppercase tracking-[0.12em] text-[var(--color-primary-strong)]'>
-          Backup
-        </p>
-        <h1 className='mt-3 text-2xl font-semibold text-[var(--color-text)]'>
-          Backup Database
-        </h1>
-        <p className='mt-2 text-[var(--color-muted)]'>
-          File berisi seluruh data, termasuk data pengguna. Simpan salinannya
-          di tempat yang aman.
-        </p>
-      </div>
+    <div className='mx-auto max-w-6xl space-y-6'>
+      <header className='flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between'>
+        <div>
+          <h1 className='text-2xl font-semibold text-[var(--color-text)]'>
+            Backup Database
+          </h1>
+          <p className='mt-1 text-sm text-[var(--color-muted)]'>
+            Salinan database dalam format .sql, tersimpan di Cloudflare R2.
+          </p>
+        </div>
+        <button
+          type='button'
+          onClick={() => startBackup.mutate()}
+          disabled={!canBackup}
+          className={PRIMARY_BUTTON_CLASS}
+        >
+          {data.running ? (
+            <Loader2 className='h-4 w-4 animate-spin' />
+          ) : (
+            <DatabaseBackup className='h-4 w-4' />
+          )}
+          {data.running ? 'Sedang backup...' : 'Backup sekarang'}
+        </button>
+      </header>
 
       {!data.encryptionReady && (
-        <div className='card p-5 flex gap-3 border-amber-300 bg-amber-50 text-amber-800 text-sm'>
-          <AlertTriangle className='h-5 w-5 shrink-0' />
-          BACKUP_ENCRYPTION_KEY belum diatur di server, jadi credential R2 belum
-          bisa disimpan.
-        </div>
+        <Banner tone='warning'>
+          <strong>BACKUP_ENCRYPTION_KEY</strong> belum diatur di server, jadi
+          credential R2 belum bisa disimpan.
+        </Banner>
       )}
-      {!data.storage.hasSecret && data.encryptionReady && (
-        <div className='card p-5 flex gap-3 border-amber-300 bg-amber-50 text-amber-800 text-sm'>
-          <AlertTriangle className='h-5 w-5 shrink-0' />
+      {data.encryptionReady && !storageReady && (
+        <Banner tone='warning'>
           Penyimpanan R2 belum diatur, jadi backup belum berjalan.
-        </div>
+        </Banner>
       )}
       {data.lastFailure && !data.running && (
-        <div className='card p-5 flex gap-3 border-red-300 bg-red-50 text-red-800 text-sm'>
-          <AlertTriangle className='h-5 w-5 shrink-0' />
-          Backup terakhir gagal: {data.lastFailure}
-        </div>
+        <Banner tone='error'>Backup terakhir gagal: {data.lastFailure}</Banner>
       )}
       {data.schedule.lastError && !data.lastFailure && (
-        <div className='card p-5 flex gap-3 border-red-300 bg-red-50 text-red-800 text-sm'>
-          <AlertTriangle className='h-5 w-5 shrink-0' />
+        <Banner tone='error'>
           Backup otomatis terakhir gagal: {data.schedule.lastError}
-        </div>
+        </Banner>
       )}
 
-      <div className='card p-6 space-y-5'>
-        <h2 className='font-semibold text-[var(--color-text)]'>
-          Penyimpanan Cloudflare R2
-        </h2>
-        <div className='grid grid-cols-1 sm:grid-cols-2 gap-4'>
-          {(
-            [
-              ['accountId', 'Account ID'],
-              ['bucket', 'Nama bucket'],
-              ['accessKeyId', 'Access Key ID'],
-            ] as const
-          ).map(([field, label]) => (
-            <label
-              key={field}
-              className='text-sm text-[var(--color-text)] space-y-1'
-            >
-              <span className='block'>{label}</span>
-              <input
-                value={storageForm[field]}
-                onChange={(event) =>
-                  setStorageField(field, event.target.value.trim())
-                }
-                autoComplete='off'
-                className='input-field w-full'
-              />
-            </label>
-          ))}
-          <label className='text-sm text-[var(--color-text)] space-y-1'>
-            <span className='block'>Secret Access Key</span>
-            <input
-              type='password'
-              value={storageForm.secretAccessKey}
-              onChange={(event) =>
-                setStorageField('secretAccessKey', event.target.value.trim())
-              }
-              placeholder={
-                data.storage.hasSecret ? 'Tersimpan, isi untuk mengganti' : ''
-              }
-              autoComplete='new-password'
-              className='input-field w-full'
-            />
-          </label>
-        </div>
-        <div className='flex flex-wrap items-center gap-3'>
-          <button
-            type='button'
-            onClick={() => testStorage.mutate()}
-            disabled={testStorage.isPending}
-            className='inline-flex items-center gap-2 px-4 py-2 text-sm font-medium border border-[var(--color-border)] rounded-lg hover:bg-gray-50 disabled:opacity-50'
-          >
-            {testStorage.isPending && (
-              <Loader2 className='h-4 w-4 animate-spin' />
-            )}
-            Tes koneksi
-          </button>
-          <button
-            type='button'
-            onClick={() => saveStorage.mutate()}
-            disabled={saveStorage.isPending || !data.encryptionReady}
-            className='btn-primary disabled:opacity-50'
-          >
-            Simpan
-          </button>
-          {storageNotice && (
-            <p className='text-sm text-[var(--color-muted)]'>{storageNotice}</p>
-          )}
-        </div>
-      </div>
+      <section className='grid grid-cols-1 gap-4 md:grid-cols-3'>
+        <Stat
+          icon={<HardDrive className='h-5 w-5' />}
+          label='Backup terakhir'
+          value={latest ? formatDate(latest.createdAt) : 'Belum ada'}
+          detail={latest ? formatSize(latest.size) : 'Buat backup pertama Anda'}
+        />
+        <Stat
+          icon={<CalendarClock className='h-5 w-5' />}
+          label='Jadwal otomatis'
+          value={
+            data.schedule.enabled
+              ? `Setiap hari ${data.schedule.time} WIB`
+              : 'Nonaktif'
+          }
+          detail={`Menyimpan ${data.schedule.keep} backup otomatis terakhir`}
+        />
+        <Stat
+          icon={<Cloud className='h-5 w-5' />}
+          label='Penyimpanan'
+          value={storageReady ? data.storage.bucket : 'Belum diatur'}
+          detail={storageReady ? 'Cloudflare R2' : 'Isi credential R2'}
+        />
+      </section>
 
-      <div className='card p-6 space-y-5'>
-        <h2 className='font-semibold text-[var(--color-text)]'>
-          Jadwal otomatis
-        </h2>
-        <div className='flex flex-col sm:flex-row sm:items-end gap-4'>
-          <label className='inline-flex items-center gap-2 text-sm text-[var(--color-text)] sm:pb-3'>
-            <input
-              type='checkbox'
-              checked={form.enabled}
-              onChange={(event) =>
-                setForm({ ...form, enabled: event.target.checked })
-              }
-              className='h-4 w-4'
-            />
-            Aktif
-          </label>
-          <label className='text-sm text-[var(--color-text)] space-y-1'>
-            <span className='block'>Jam (WIB)</span>
-            <input
-              type='time'
-              value={form.time}
-              onChange={(event) =>
-                setForm({ ...form, time: event.target.value })
-              }
-              className='input-field'
-            />
-          </label>
-          <label className='text-sm text-[var(--color-text)] space-y-1'>
-            <span className='block'>Simpan backup otomatis terakhir</span>
-            <input
-              type='number'
-              min={1}
-              max={365}
-              value={form.keep}
-              onChange={(event) =>
-                setForm({ ...form, keep: Number(event.target.value) })
-              }
-              className='input-field w-28'
-            />
-          </label>
-          <button
-            type='button'
-            onClick={() => saveSettings.mutate()}
-            disabled={saveSettings.isPending}
-            className='btn-primary disabled:opacity-50'
-          >
-            Simpan jadwal
-          </button>
-        </div>
-        <p className='text-xs text-[var(--color-muted)]'>
-          Backup otomatis yang lebih lama dihapus sendiri. Backup manual tidak
-          dihapus otomatis.
-        </p>
-      </div>
-
-      <div className='card p-6 space-y-4'>
-        <div className='flex flex-wrap items-center justify-between gap-3'>
-          <div>
+      <div className='grid grid-cols-1 items-start gap-6 lg:grid-cols-5'>
+        <section className='card overflow-hidden lg:col-span-3'>
+          <div className='border-b border-[var(--color-border)] p-5'>
             <h2 className='font-semibold text-[var(--color-text)]'>
               Daftar backup
             </h2>
+            <p className='mt-0.5 text-sm text-[var(--color-muted)]'>
+              {data.backups.length} file tersimpan
+            </p>
             {data.listError && (
-              <p className='text-xs text-red-600'>{data.listError}</p>
+              <p className='mt-2 text-sm text-red-600'>{data.listError}</p>
+            )}
+            {listFeedback && (
+              <div className='mt-2'>
+                <FeedbackText feedback={listFeedback} />
+              </div>
             )}
           </div>
-          <button
-            type='button'
-            onClick={() => startBackup.mutate()}
-            disabled={
-              data.running || startBackup.isPending || !data.storage.hasSecret
-            }
-            className='btn-primary inline-flex items-center gap-2 disabled:opacity-50'
-          >
-            {data.running ? (
-              <Loader2 className='h-4 w-4 animate-spin' />
-            ) : (
-              <DatabaseBackup className='h-4 w-4' />
-            )}
-            {data.running ? 'Sedang backup...' : 'Backup sekarang'}
-          </button>
-        </div>
 
-        {notice && <p className='text-sm text-[var(--color-muted)]'>{notice}</p>}
-
-        {data.backups.length === 0 ? (
-          <p className='py-6 text-center text-sm text-[var(--color-muted)]'>
-            Belum ada backup.
-          </p>
-        ) : (
-          <div className='overflow-x-auto'>
-            <table className='w-full text-sm'>
-              <thead>
-                <tr className='text-left text-xs uppercase tracking-wide text-[var(--color-muted)]'>
-                  <th className='py-2 pr-4'>Waktu</th>
-                  <th className='py-2 pr-4'>Ukuran</th>
-                  <th className='py-2 pr-4'>Jenis</th>
-                  <th className='py-2' />
-                </tr>
-              </thead>
-              <tbody>
-                {data.backups.map((backup) => (
-                  <tr
-                    key={backup.name}
-                    className='border-t border-[var(--color-border)]'
-                  >
-                    <td className='py-3 pr-4 whitespace-nowrap'>
-                      {new Date(backup.createdAt).toLocaleString('id-ID')}
-                    </td>
-                    <td className='py-3 pr-4 whitespace-nowrap'>
+          {data.backups.length === 0 ? (
+            <div className='flex flex-col items-center px-6 py-14 text-center'>
+              <DatabaseBackup className='h-10 w-10 text-slate-300' />
+              <p className='mt-3 font-medium text-[var(--color-text)]'>
+                Belum ada backup
+              </p>
+              <p className='mt-1 max-w-xs text-sm text-[var(--color-muted)]'>
+                {storageReady
+                  ? 'Klik "Backup sekarang" untuk membuat backup pertama.'
+                  : 'Atur penyimpanan R2 lebih dulu, lalu buat backup pertama.'}
+              </p>
+            </div>
+          ) : (
+            <ul className='divide-y divide-[var(--color-border)]'>
+              {data.backups.map((backup) => (
+                <li
+                  key={backup.name}
+                  className='flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between sm:px-5'
+                >
+                  <div className='min-w-0'>
+                    <p className='font-medium text-[var(--color-text)]'>
+                      {formatDate(backup.createdAt)}
+                    </p>
+                    <p className='mt-1 flex items-center gap-2 text-xs text-[var(--color-muted)]'>
+                      <span
+                        className={`rounded-full px-2 py-0.5 font-medium ${
+                          backup.type === 'auto'
+                            ? 'bg-sky-50 text-sky-700'
+                            : 'bg-slate-100 text-slate-700'
+                        }`}
+                      >
+                        {backup.type === 'auto' ? 'Otomatis' : 'Manual'}
+                      </span>
                       {formatSize(backup.size)}
-                    </td>
-                    <td className='py-3 pr-4'>
-                      {backup.type === 'auto' ? 'Otomatis' : 'Manual'}
-                    </td>
-                    <td className='py-3'>
-                      <div className='flex justify-end gap-2'>
-                        <a
-                          href={`/api/backups/${encodeURIComponent(backup.name)}`}
-                          className='inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border border-[var(--color-border)] rounded-lg hover:bg-gray-50'
-                        >
-                          <Download className='h-3.5 w-3.5' />
-                          Download
-                        </a>
-                        <button
-                          type='button'
-                          onClick={() => {
-                            if (window.confirm('Hapus backup ini?')) {
-                              removeBackup.mutate(backup.name);
-                            }
-                          }}
-                          className='inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border border-red-200 text-red-600 rounded-lg hover:bg-red-50'
-                        >
-                          <Trash2 className='h-3.5 w-3.5' />
-                          Hapus
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+                    </p>
+                  </div>
+                  <div className='flex shrink-0 gap-2'>
+                    <a
+                      href={`/api/backups/${encodeURIComponent(backup.name)}`}
+                      className='inline-flex h-9 items-center gap-1.5 rounded-lg border border-[var(--color-border)] px-3 text-sm font-medium text-[var(--color-text)] transition hover:bg-slate-50'
+                    >
+                      <Download className='h-4 w-4' />
+                      Download
+                    </a>
+                    <button
+                      type='button'
+                      aria-label={`Hapus backup ${formatDate(backup.createdAt)}`}
+                      title='Hapus'
+                      onClick={() => {
+                        if (
+                          window.confirm(
+                            `Hapus backup ${formatDate(backup.createdAt)}?`
+                          )
+                        ) {
+                          removeBackup.mutate(backup.name);
+                        }
+                      }}
+                      className='inline-flex h-9 w-9 items-center justify-center rounded-lg border border-red-200 text-red-600 transition hover:bg-red-50'
+                    >
+                      <Trash2 className='h-4 w-4' />
+                    </button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+
+        <div className='space-y-6 lg:col-span-2'>
+          <section className='card space-y-5 p-5'>
+            <div className='flex items-start justify-between gap-3'>
+              <div>
+                <h2 className='font-semibold text-[var(--color-text)]'>
+                  Jadwal otomatis
+                </h2>
+                <p className='mt-0.5 text-sm text-[var(--color-muted)]'>
+                  Berjalan sekali sehari.
+                </p>
+              </div>
+              <label className='relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center'>
+                <input
+                  type='checkbox'
+                  aria-label='Aktifkan jadwal otomatis'
+                  checked={schedule.enabled}
+                  onChange={(event) =>
+                    setScheduleEdits({
+                      ...schedule,
+                      enabled: event.target.checked,
+                    })
+                  }
+                  className='peer sr-only'
+                />
+                <span className='absolute inset-0 rounded-full bg-slate-200 transition-colors peer-checked:bg-[var(--color-primary-strong)] peer-focus-visible:ring-2 peer-focus-visible:ring-[var(--color-primary)]/40' />
+                <span className='absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform peer-checked:translate-x-5' />
+              </label>
+            </div>
+            <div className='grid grid-cols-1 gap-4 sm:grid-cols-2'>
+              <Field label='Jam (WIB)'>
+                <input
+                  type='time'
+                  value={schedule.time}
+                  disabled={!schedule.enabled}
+                  onChange={(event) =>
+                    setScheduleEdits({ ...schedule, time: event.target.value })
+                  }
+                  className={`${FIELD_CLASS} disabled:bg-slate-50 disabled:text-slate-400`}
+                />
+              </Field>
+              <Field label='Jumlah disimpan'>
+                <input
+                  type='number'
+                  min={1}
+                  max={365}
+                  value={schedule.keep}
+                  onChange={(event) =>
+                    setScheduleEdits({
+                      ...schedule,
+                      keep: Number(event.target.value),
+                    })
+                  }
+                  className={FIELD_CLASS}
+                />
+              </Field>
+            </div>
+            <p className='text-xs text-[var(--color-muted)]'>
+              Backup otomatis yang lebih lama terhapus sendiri. Backup manual
+              tetap disimpan sampai Anda menghapusnya.
+            </p>
+            <FeedbackText feedback={scheduleFeedback} />
+            <button
+              type='button'
+              onClick={() => saveSchedule.mutate()}
+              disabled={!scheduleEdits || saveSchedule.isPending}
+              className={`${PRIMARY_BUTTON_CLASS} w-full`}
+            >
+              {saveSchedule.isPending && (
+                <Loader2 className='h-4 w-4 animate-spin' />
+              )}
+              Simpan jadwal
+            </button>
+          </section>
+
+          <section className='card space-y-5 p-5'>
+            <div>
+              <h2 className='font-semibold text-[var(--color-text)]'>
+                Penyimpanan Cloudflare R2
+              </h2>
+              <p className='mt-0.5 text-sm text-[var(--color-muted)]'>
+                Pakai token khusus bucket ini dengan izin Object Read &amp;
+                Write.
+              </p>
+            </div>
+            <Field label='Account ID' hint='32 karakter, ada di halaman R2.'>
+              <input
+                value={storage.accountId}
+                onChange={(event) =>
+                  setStorageField('accountId', event.target.value.trim())
+                }
+                autoComplete='off'
+                spellCheck={false}
+                className={FIELD_CLASS}
+              />
+            </Field>
+            <Field label='Nama bucket'>
+              <input
+                value={storage.bucket}
+                onChange={(event) =>
+                  setStorageField('bucket', event.target.value.trim())
+                }
+                placeholder='navisight-backup'
+                autoComplete='off'
+                spellCheck={false}
+                className={FIELD_CLASS}
+              />
+            </Field>
+            <Field label='Access Key ID'>
+              <input
+                value={storage.accessKeyId}
+                onChange={(event) =>
+                  setStorageField('accessKeyId', event.target.value.trim())
+                }
+                autoComplete='off'
+                spellCheck={false}
+                className={FIELD_CLASS}
+              />
+            </Field>
+            <Field
+              label='Secret Access Key'
+              hint={
+                data.storage.hasSecret
+                  ? 'Sudah tersimpan terenkripsi. Kosongkan bila tidak diganti.'
+                  : 'Disimpan terenkripsi dan tidak ditampilkan lagi.'
+              }
+            >
+              <input
+                type='password'
+                value={storage.secretAccessKey}
+                onChange={(event) =>
+                  setStorageField('secretAccessKey', event.target.value.trim())
+                }
+                placeholder={data.storage.hasSecret ? '••••••••••••' : ''}
+                autoComplete='new-password'
+                className={FIELD_CLASS}
+              />
+            </Field>
+            <FeedbackText feedback={storageFeedback} />
+            <div className='grid grid-cols-2 gap-3'>
+              <button
+                type='button'
+                onClick={() => testStorage.mutate()}
+                disabled={testStorage.isPending}
+                className={SECONDARY_BUTTON_CLASS}
+              >
+                {testStorage.isPending && (
+                  <Loader2 className='h-4 w-4 animate-spin' />
+                )}
+                Tes koneksi
+              </button>
+              <button
+                type='button'
+                onClick={() => saveStorage.mutate()}
+                disabled={saveStorage.isPending || !data.encryptionReady}
+                className={PRIMARY_BUTTON_CLASS}
+              >
+                {saveStorage.isPending && (
+                  <Loader2 className='h-4 w-4 animate-spin' />
+                )}
+                Simpan
+              </button>
+            </div>
+          </section>
+        </div>
       </div>
     </div>
   );

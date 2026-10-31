@@ -23,7 +23,7 @@ const MIN_FREE_BYTES = 1024 ** 3;
 const RETRY_AFTER_MS = 30 * 60_000;
 const DOWNLOAD_LINK_SECONDS = 300;
 const FILE_PATTERN =
-  /^navisight-\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}-(auto|manual)\.dump$/;
+  /^navisight-\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}-(auto|manual)\.(sql|dump)$/;
 
 export type R2Credentials = {
   accountId: string;
@@ -191,7 +191,7 @@ async function listFrom(credentials: R2Credentials) {
         name,
         size: item.Size ?? 0,
         createdAt: (item.LastModified ?? new Date()).toISOString(),
-        type: name.endsWith('-auto.dump') ? 'auto' : 'manual',
+        type: name.includes('-auto.') ? 'auto' : 'manual',
       });
     }
     ContinuationToken = page.NextContinuationToken;
@@ -246,7 +246,7 @@ const runPgDump = (file: string) =>
   new Promise<void>((resolve, reject) => {
     const child = spawn(
       'pg_dump',
-      ['--format=custom', '--no-owner', '--no-privileges', '--file', file],
+      ['--format=plain', '--no-owner', '--no-privileges', '--file', file],
       { env: dumpEnv(), stdio: ['ignore', 'ignore', 'pipe'] }
     );
     let stderr = '';
@@ -268,7 +268,7 @@ const runPgDump = (file: string) =>
 export async function createBackup(type: 'auto' | 'manual') {
   if (state.__dbBackupRunning) throw new Error('Backup lain sedang berjalan');
   state.__dbBackupRunning = true;
-  const name = `navisight-${zonedNow().stamp}-${type}.dump`;
+  const name = `navisight-${zonedNow().stamp}-${type}.sql`;
   const temp = path.join(tmpdir(), name);
   try {
     const credentials = await requireCredentials();
@@ -277,14 +277,16 @@ export async function createBackup(type: 'auto' | 'manual') {
       throw new Error('Ruang disk sementara kurang dari 1 GB');
     }
     await runPgDump(temp);
-    // File custom pg_dump selalu diawali PGDMP; selain itu berarti tidak utuh.
-    const handle = await fs.open(temp, 'r');
-    const magic = Buffer.alloc(5);
-    await handle.read(magic, 0, 5, 0);
-    await handle.close();
-    if (magic.toString() !== 'PGDMP') throw new Error('Hasil pg_dump tidak valid');
-
+    // File SQL yang utuh selalu ditutup penanda ini di bagian akhir.
     const { size } = await fs.stat(temp);
+    const handle = await fs.open(temp, 'r');
+    const tail = Buffer.alloc(Math.min(size, 512));
+    await handle.read(tail, 0, tail.length, size - tail.length);
+    await handle.close();
+    if (!tail.toString().includes('PostgreSQL database dump complete')) {
+      throw new Error('Hasil pg_dump tidak utuh');
+    }
+
     await createClient(credentials).send(
       new PutObjectCommand({
         Bucket: credentials.bucket,
