@@ -21,6 +21,7 @@ import Hls from 'hls.js';
 import { detectStreamType, type StreamType } from '@/lib/stream-utils';
 import { WebRTCPlayer } from '@/components/cctv/webrtc-player';
 import { PtzControls } from '@/components/cctv/ptz-controls';
+import { ListenButton } from '@/components/cctv/listen-button';
 import { TalkButton } from '@/components/cctv/talk-button';
 
 const withCacheBuster = (url: string) =>
@@ -585,7 +586,10 @@ export default function ViewCCTVPage() {
           )}
 
           {isAdmin && camera.audioEnabled && camera.go2rtcStream && (
-            <TalkButton cameraId={camera.id} />
+            <div className='grid grid-cols-1 gap-4 sm:grid-cols-2'>
+              <ListenButton cameraId={camera.id} />
+              <TalkButton cameraId={camera.id} />
+            </div>
           )}
         </div>
       </div>
