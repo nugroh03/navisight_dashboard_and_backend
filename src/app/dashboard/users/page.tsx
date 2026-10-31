@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSession } from 'next-auth/react';
+import { ResetPasswordModal } from '@/components/users/reset-password-modal';
 
 type ProjectOption = {
   id: string;
@@ -121,6 +122,7 @@ export default function UsersPage() {
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<UserRow | null>(null);
+  const [resetUser, setResetUser] = useState<UserRow | null>(null);
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
   const [formName, setFormName] = useState('');
   const [formEmail, setFormEmail] = useState('');
@@ -406,6 +408,14 @@ export default function UsersPage() {
                   >
                     Edit
                   </button>
+                  {isAdmin && (
+                    <button
+                      onClick={() => setResetUser(user)}
+                      className='px-4 py-2 text-sm font-medium text-amber-700 border border-amber-300 rounded-lg hover:bg-amber-50 transition'
+                    >
+                      Reset Password
+                    </button>
+                  )}
                   <button
                     onClick={() => setDeleteConfirmId(user.id)}
                     disabled={deleteMutation.isPending}
@@ -635,6 +645,13 @@ export default function UsersPage() {
             </form>
           </div>
         </div>
+      )}
+
+      {resetUser && (
+        <ResetPasswordModal
+          user={resetUser}
+          onClose={() => setResetUser(null)}
+        />
       )}
 
       {deleteConfirmId && (
