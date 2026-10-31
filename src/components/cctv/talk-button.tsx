@@ -83,6 +83,9 @@ export function TalkButton({ cameraId }: TalkButtonProps) {
       const pc = new RTCPeerConnection({ bundlePolicy: 'max-bundle' });
       pcRef.current = pc;
       pc.addTransceiver(mic.getAudioTracks()[0], { direction: 'sendonly' });
+      // go2rtc menganggap koneksi yang hanya mengirim sebagai producer dan tidak
+      // meneruskannya ke kamera; transceiver recvonly menjadikannya consumer.
+      pc.addTransceiver('audio', { direction: 'recvonly' });
       pc.onconnectionstatechange = () => {
         if (isStale()) return;
         if (pc.connectionState === 'connected') {
