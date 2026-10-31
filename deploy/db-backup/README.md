@@ -1,6 +1,6 @@
 # Backup database dashboard
 
-Halaman: **Dashboard → Backup** (khusus ADMINISTRATOR). `pg_dump` format custom dikirim ke Cloudflare R2, folder `navisight/` di dalam bucket. File hanya ada di folder sementara container selama proses.
+Halaman: **Dashboard → Backup** (khusus ADMINISTRATOR). File `.sql` dari `pg_dump` dikirim ke Cloudflare R2, folder `navisight/` di dalam bucket. File hanya ada di folder sementara container selama proses.
 
 ## Pemasangan
 
@@ -11,11 +11,13 @@ Halaman: **Dashboard → Backup** (khusus ADMINISTRATOR). `pg_dump` format custo
 
 ## Memulihkan
 
-Menimpa data, jadi uji dulu ke database kosong. Versi `pg_restore` harus sama atau lebih baru dari yang membuat file.
+Menimpa data, jadi uji dulu ke database kosong. Pakai `psql` versi 17 terbaru, karena file bisa berisi perintah `\restrict` yang tidak dikenal versi lama.
 
 ```bash
 createdb -h HOST -p PORT -U USER navisight_uji
-pg_restore -h HOST -p PORT -U USER -d navisight_uji --no-owner --no-privileges NAMA_FILE.dump
+psql -h HOST -p PORT -U USER -d navisight_uji -v ON_ERROR_STOP=1 -f NAMA_FILE.sql
 ```
+
+File `.dump` lama dipulihkan dengan `pg_restore --no-owner --no-privileges -d navisight_uji NAMA_FILE.dump`.
 
 File backup berisi seluruh data termasuk data pengguna.
