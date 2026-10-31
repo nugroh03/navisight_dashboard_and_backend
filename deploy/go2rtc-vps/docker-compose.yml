@@ -56,6 +56,13 @@ configs:
         cam170_talk: isapi://${CAM_USER}:${CAM_PASS}@192.168.1.170:80/
         # Suara dari kamera ke browser (tombol Dengarkan).
         cam141_audio: rtsp://${RTSP_USER}:${RTSP_PASS}@100.89.88.78:8554/cam141_audio
+        cam34_audio: rtsp://${RTSP_USER}:${RTSP_PASS}@100.89.88.78:8554/cam34_audio
+        cam43_audio: rtsp://${RTSP_USER}:${RTSP_PASS}@100.89.88.78:8554/cam43_audio
+        cam51_audio: rtsp://${RTSP_USER}:${RTSP_PASS}@100.89.88.78:8554/cam51_audio
+        cam102_audio: rtsp://${RTSP_USER}:${RTSP_PASS}@100.89.88.78:8554/cam102_audio
+        cam106_audio: rtsp://${RTSP_USER}:${RTSP_PASS}@100.89.88.78:8554/cam106_audio
+        cam130_audio: rtsp://${RTSP_USER}:${RTSP_PASS}@100.89.88.78:8554/cam130_audio
+        cam170_audio: rtsp://${RTSP_USER}:${RTSP_PASS}@100.89.88.78:8554/cam170_audio
 
 networks:
   dokploy-network:
