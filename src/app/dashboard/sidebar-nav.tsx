@@ -13,6 +13,7 @@ const navItems = [
   { label: "Users", href: "/dashboard/users", section: "manage", allowedRoles: ["ADMINISTRATOR", "CLIENT"] },
   { label: "Projects", href: "/dashboard/projects", section: "manage", allowedRoles: ["ADMINISTRATOR"] },
   { label: "Ports", href: "/dashboard/ports", section: "manage", allowedRoles: ["ADMINISTRATOR"] },
+  { label: "Backup", href: "/dashboard/backup", section: "manage", allowedRoles: ["ADMINISTRATOR"] },
 ];
 
 export function SidebarNav() {

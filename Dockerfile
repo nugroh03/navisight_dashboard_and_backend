@@ -32,7 +32,8 @@ RUN npm run build
 
 # Stage 3: Runner
 FROM node:20-alpine AS runner
-RUN apk add --no-cache openssl
+# pg_dump untuk backup database; versi utama harus >= server PostgreSQL (17).
+RUN apk add --no-cache openssl postgresql17-client
 WORKDIR /app
 
 ENV NODE_ENV=production

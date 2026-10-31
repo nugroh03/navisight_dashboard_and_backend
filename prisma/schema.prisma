@@ -265,3 +265,22 @@ enum AccountType {
   INTERNAL_STAFF // Staff internal perusahaan (admin, worker)
   EXTERNAL_CUSTOMER // Customer eksternal (client mobile)
 }
+
+// Satu baris saja (id = "default"): pengaturan backup database ke Cloudflare R2.
+// secretEnc terenkripsi dengan BACKUP_ENCRYPTION_KEY dari env, bukan teks biasa.
+model BackupSettings {
+  id            String    @id @default("default") @db.VarChar(20)
+  enabled       Boolean   @default(true)
+  time          String    @default("02:00") @db.VarChar(5)
+  keep          Int       @default(14)
+  lastAutoDate  String?   @map("last_auto_date") @db.VarChar(10)
+  lastAttemptAt DateTime? @map("last_attempt_at") @db.Timestamptz(6)
+  lastError     String?   @map("last_error") @db.Text
+  accountId     String?   @map("account_id") @db.VarChar(64)
+  bucket        String?   @db.VarChar(63)
+  accessKeyId   String?   @map("access_key_id") @db.VarChar(128)
+  secretEnc     String?   @map("secret_enc") @db.Text
+  updatedAt     DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@map("backup_settings")
+}
