@@ -481,7 +481,7 @@ export default function CCTVPage() {
                     </div>
                   )}
 
-                  <div className='absolute top-3 left-3 flex flex-wrap gap-2'>
+                  <div className='absolute bottom-3 left-3 flex flex-wrap gap-2'>
                     <span
                       className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold ${variant.badgeClass}`}
                     >

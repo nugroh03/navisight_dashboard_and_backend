@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/auth/config';
 import { prisma } from '@/lib/prisma';
 import { createCCTVSchema } from '@/lib/validations';
+import { resolveCameraStatus } from '@/lib/camera-status';
 import { z } from 'zod';
 
 // GET /api/cctv - Get all CCTV cameras
@@ -84,17 +85,15 @@ export async function GET(request: NextRequest) {
     });
 
     // Transform to match CCTV interface
-    const transformedCameras = cameras.map((camera) => ({
+    const statuses = await Promise.all(cameras.map(resolveCameraStatus));
+    const transformedCameras = cameras.map((camera, index) => ({
       id: camera.id,
       name: camera.name || 'Unnamed Camera',
       description: camera.description,
       location: camera.location,
       projectId: camera.projectId,
       streamUrl: camera.urlCamera,
-      status: (camera.status || 'OFFLINE') as
-        | 'ONLINE'
-        | 'OFFLINE'
-        | 'MAINTENANCE',
+      status: statuses[index],
       sortOrder: camera.sortOrder,
       go2rtcStream: camera.go2rtcStream,
       isapiHost: roleName === 'ADMINISTRATOR' ? camera.isapiHost : undefined,

@@ -4,6 +4,7 @@ import { authOptions } from '@/auth/config';
 import { prisma } from '@/lib/prisma';
 import { updateCCTVSchema } from '@/lib/validations';
 import { findAccessibleCamera } from '@/lib/camera-access';
+import { resolveCameraStatus } from '@/lib/camera-status';
 import { z } from 'zod';
 
 // GET /api/cctv/[id] - Get single CCTV camera
@@ -43,10 +44,7 @@ export async function GET(
       location: camera.location,
       projectId: camera.projectId,
       streamUrl: isAdmin ? camera.urlCamera : camera.urlCamera, // Still send URL for streaming, but hide in UI for non-admin
-      status: (camera.status || 'OFFLINE') as
-        | 'ONLINE'
-        | 'OFFLINE'
-        | 'MAINTENANCE',
+      status: await resolveCameraStatus(camera),
       sortOrder: camera.sortOrder,
       go2rtcStream: camera.go2rtcStream,
       isapiHost: isAdmin ? camera.isapiHost : undefined,
