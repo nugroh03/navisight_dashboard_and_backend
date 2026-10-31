@@ -157,6 +157,7 @@ model PositionReport {
   updatedAt  DateTime @updatedAt @db.Timestamptz(6)
   project    Project  @relation(fields: [projectId], references: [id])
 
+  @@index([projectId, reportedAt(sort: Desc)])
   @@map("position_reports")
 }
 
