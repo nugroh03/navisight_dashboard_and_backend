@@ -75,6 +75,10 @@ export async function PUT(
       return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
     }
 
+    if ((session.user.role as string) !== 'ADMINISTRATOR') {
+      return NextResponse.json({ message: 'Forbidden' }, { status: 403 });
+    }
+
     let userId = session.user.id;
     if (!userId) {
       const user = await prisma.user.findUnique({
@@ -151,6 +155,10 @@ export async function DELETE(
     const session = await getServerSession(authOptions);
     if (!session?.user?.email) {
       return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+    }
+
+    if ((session.user.role as string) !== 'ADMINISTRATOR') {
+      return NextResponse.json({ message: 'Forbidden' }, { status: 403 });
     }
 
     let userId = session.user.id;

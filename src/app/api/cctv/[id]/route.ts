@@ -77,6 +77,10 @@ export async function PATCH(
       return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
     }
 
+    if ((session.user.role as string) !== 'ADMINISTRATOR') {
+      return NextResponse.json({ message: 'Forbidden' }, { status: 403 });
+    }
+
     const { id } = await context.params;
     const body = await request.json();
     const validatedData = updateCCTVSchema.parse(body);
@@ -194,6 +198,10 @@ export async function DELETE(
 
     if (!session?.user?.email) {
       return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+    }
+
+    if ((session.user.role as string) !== 'ADMINISTRATOR') {
+      return NextResponse.json({ message: 'Forbidden' }, { status: 403 });
     }
 
     const { id } = await context.params;

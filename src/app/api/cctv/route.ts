@@ -123,6 +123,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
     }
 
+    if ((session.user.role as string) !== 'ADMINISTRATOR') {
+      return NextResponse.json({ message: 'Forbidden' }, { status: 403 });
+    }
+
     const body = await request.json();
     const validatedData = createCCTVSchema.parse(body);
     const isAdmin = (session.user.role as string) === 'ADMINISTRATOR';

@@ -19,7 +19,7 @@ export default function EditCCTVPage() {
   const router = useRouter();
   const params = useParams();
   const cameraId = params?.id as string;
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const { data: camera, isLoading: cameraLoading } = useCCTVCamera(cameraId);
@@ -87,6 +87,14 @@ export default function EditCCTVPage() {
   const handleCancel = () => {
     router.push('/dashboard/cctv');
   };
+
+  if (status === 'authenticated' && !isAdmin) {
+    return (
+      <p className='py-12 text-center text-red-600'>
+        Halaman ini khusus ADMINISTRATOR.
+      </p>
+    );
+  }
 
   if (cameraLoading) {
     return (

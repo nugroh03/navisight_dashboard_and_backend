@@ -18,7 +18,7 @@ export default function CreateCCTVPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const createCCTV = useCreateCCTV();
   const { data: projects, isLoading: projectsLoading } = useProjects();
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
   const isAdmin = (session?.user?.role as string) === 'ADMINISTRATOR';
 
   const {
@@ -67,6 +67,14 @@ export default function CreateCCTVPage() {
     reset();
     router.push('/dashboard/cctv');
   };
+
+  if (status === 'authenticated' && !isAdmin) {
+    return (
+      <p className='py-12 text-center text-red-600'>
+        Halaman ini khusus ADMINISTRATOR.
+      </p>
+    );
+  }
 
   return (
     <div className='max-w-2xl mx-auto'>
