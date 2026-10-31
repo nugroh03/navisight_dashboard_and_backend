@@ -197,6 +197,15 @@ Metode: ambil 60 frame berturut-turut, potong area jam OSD kamera, tempelkan wak
 Penyebab: decoder H.265 ffmpeg default memakai frame-threading (menahan beberapa frame, ±1,4 s pada 10 fps).
 Perbaikan di `deploy/go2rtc-local/go2rtc.yaml`: input `-flags low_delay -threads 1`, encoder `-async_depth 1`. Dipasang ke `/etc/go2rtc/go2rtc.yaml` + `systemctl restart go2rtc` (Shinobi tidak terpengaruh).
 
+## 6b. Rilis 2: PTZ (2026-10-29) ✅
+
+- Jalur: browser → `POST /api/cctv/[id]/ptz` (Next.js, khusus ADMINISTRATOR + anggota project) → ISAPI Digest ke `isapiHost` kamera lewat Tailscale. Kredensial di env Dokploy `CAM_ISAPI_USER`/`CAM_ISAPI_PASS`.
+- Kamera hanya mendukung PTZ continuous. Browser mengirim `move` tiap 400 ms selama tombol ditahan; server mengirim `stop` sendiri bila 1,5 s tanpa `move` (tab ditutup/koneksi putus).
+- Aktifkan per kamera: centang "Kontrol PTZ" + isi "Host ISAPI" di form edit.
+- Preset: .141 punya preset 1 = posisi standar rekaman (goto kembali, selisih ±5 px). 7 kamera lain belum punya preset.
+- Uji: tes lokal (move/stop/auto-stop/goto) OK; user menguji dari UI production (Ruang VIP) — normal. Shinobi tidak terganggu.
+- Ikut di PR #2: dropdown nama stream go2rtc di form, WebRTC 404 langsung fallback ke HLS tanpa retry.
+
 ## 7. Catatan lama — rencana Tahap 2 (sudah dikerjakan)
 
 Rencana awal (dijelaskan & disetujui dulu sebelum dipasang):

@@ -10,6 +10,7 @@ import { useProjects } from '@/hooks/use-projects';
 import { createCCTVSchema, CreateCCTVInput } from '@/lib/validations';
 import { toast } from 'sonner';
 import Link from 'next/link';
+import { Go2rtcStreamField } from '@/components/cctv/go2rtc-stream-field';
 import { useSession } from 'next-auth/react';
 
 export default function CreateCCTVPage() {
@@ -24,6 +25,7 @@ export default function CreateCCTVPage() {
     register,
     handleSubmit,
     reset,
+    watch,
     formState: { errors },
   } = useForm<CreateCCTVInput>({
     resolver: zodResolver(createCCTVSchema),
@@ -263,14 +265,11 @@ export default function CreateCCTVPage() {
                   >
                     Nama Stream go2rtc
                   </label>
-                  <input
-                    id='go2rtcStream'
-                    {...register('go2rtcStream')}
-                    placeholder='contoh: cam141'
+                  <Go2rtcStreamField
+                    registration={register('go2rtcStream')}
+                    value={watch('go2rtcStream')}
                     disabled={isSubmitting}
-                    className={`input-field w-full ${
-                      errors.go2rtcStream ? 'border-red-500' : ''
-                    }`}
+                    hasError={!!errors.go2rtcStream}
                   />
                   {errors.go2rtcStream && (
                     <p className='text-sm text-red-600'>
