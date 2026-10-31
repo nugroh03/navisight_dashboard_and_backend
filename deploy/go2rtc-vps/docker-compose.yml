@@ -45,6 +45,8 @@ configs:
         cam130: rtsp://${RTSP_USER}:${RTSP_PASS}@100.89.88.78:8554/cam130
         cam141: rtsp://${RTSP_USER}:${RTSP_PASS}@100.89.88.78:8554/cam141
         cam170: rtsp://${RTSP_USER}:${RTSP_PASS}@100.89.88.78:8554/cam170
+        # Bicara ke speaker kamera, langsung ke ISAPI lewat Tailscale (tanpa go2rtc lokal).
+        cam141_talk: isapi://${CAM_USER}:${CAM_PASS}@192.168.1.141:80/
 
 networks:
   dokploy-network:
