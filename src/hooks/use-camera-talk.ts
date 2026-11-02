@@ -8,6 +8,30 @@ export type TalkState = 'idle' | 'connecting' | 'talking';
 const CONNECT_TIMEOUT_MS = 15_000;
 // Batas satu sesi agar mic tidak terlupa terbuka dan suara terus terkirim ke lokasi.
 const MAX_TALK_MS = 5 * 60_000;
+// Suara dari mic perangkat jauh lebih lemah dari level speaker kamera; pembatas di
+// belakang penguat menjaga suara keras agar tidak pecah.
+const MIC_GAIN = 3;
+
+// Mengembalikan track yang sudah dikuatkan untuk dikirim ke kamera.
+const amplifyMic = async (stream: MediaStream) => {
+  const context = new AudioContext();
+  await context.resume();
+  const gain = context.createGain();
+  gain.gain.value = MIC_GAIN;
+  const limiter = context.createDynamicsCompressor();
+  limiter.threshold.value = -6;
+  limiter.knee.value = 6;
+  limiter.ratio.value = 20;
+  limiter.attack.value = 0.003;
+  limiter.release.value = 0.15;
+  const output = context.createMediaStreamDestination();
+  context
+    .createMediaStreamSource(stream)
+    .connect(gain)
+    .connect(limiter)
+    .connect(output);
+  return { context, track: output.stream.getAudioTracks()[0] };
+};
 
 // Tekan sekali untuk mulai bicara, tekan Akhiri untuk berhenti. Sambungan WebRTC
 // terpisah dari video dan hanya mengirim audio, jadi tidak ikut mendengarkan.
@@ -18,6 +42,7 @@ export function useCameraTalk(cameraId: string) {
   const pcRef = useRef<RTCPeerConnection | null>(null);
   const [mic, setMic] = useState<MediaStream | null>(null);
   const micRef = useRef<MediaStream | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Naik setiap mulai/berhenti, agar proses sambung yang sudah usang dibatalkan.
   const sessionRef = useRef(0);
@@ -35,6 +60,8 @@ export function useCameraTalk(cameraId: string) {
     micRef.current?.getTracks().forEach((track) => track.stop());
     micRef.current = null;
     setMic(null);
+    void audioContextRef.current?.close();
+    audioContextRef.current = null;
     if (pcRef.current) {
       pcRef.current.onconnectionstatechange = null;
       pcRef.current.close();
@@ -67,7 +94,11 @@ export function useCameraTalk(cameraId: string) {
     );
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        audio: { echoCancellation: true, noiseSuppression: true },
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        },
       });
       if (isStale()) {
         stream.getTracks().forEach((track) => track.stop());
@@ -76,9 +107,16 @@ export function useCameraTalk(cameraId: string) {
       micRef.current = stream;
       setMic(stream);
 
+      const { context, track } = await amplifyMic(stream);
+      if (isStale()) {
+        void context.close();
+        return;
+      }
+      audioContextRef.current = context;
+
       const pc = new RTCPeerConnection({ bundlePolicy: 'max-bundle' });
       pcRef.current = pc;
-      pc.addTransceiver(stream.getAudioTracks()[0], { direction: 'sendonly' });
+      pc.addTransceiver(track, { direction: 'sendonly' });
       // go2rtc menganggap koneksi yang hanya mengirim sebagai producer dan tidak
       // meneruskannya ke kamera; transceiver recvonly menjadikannya consumer.
       pc.addTransceiver('audio', { direction: 'recvonly' });
