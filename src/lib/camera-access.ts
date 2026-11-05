@@ -48,3 +48,16 @@ export async function findAccessibleCamera(email: string, cameraId: string) {
 
   return { user, camera };
 }
+
+/**
+ * Boleh mengontrol kamera (PTZ, mic, dengarkan)? ADMINISTRATOR selalu boleh;
+ * CLIENT hanya jika ADMINISTRATOR memberi izin canControlCamera.
+ */
+export function canControlCamera(
+  user: { canControlCamera: boolean; role?: { name: string } | null } | null
+) {
+  if (!user) return false;
+  const roleName = user.role?.name as string | undefined;
+  if (roleName === 'ADMINISTRATOR') return true;
+  return roleName === 'CLIENT' && user.canControlCamera;
+}

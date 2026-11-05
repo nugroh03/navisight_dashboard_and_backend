@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/auth/config';
-import { findAccessibleCamera } from '@/lib/camera-access';
+import { canControlCamera, findAccessibleCamera } from '@/lib/camera-access';
 import { go2rtcFetch, Go2rtcNotConfiguredError } from '@/lib/go2rtc';
 
 // Signaling WebRTC untuk jalur audio kamera. Nama stream ditentukan server dari
-// "<go2rtcStream><suffix>" dan khusus ADMINISTRATOR, sehingga penonton biasa tidak
+// "<go2rtcStream><suffix>" dan khusus ADMINISTRATOR atau CLIENT yang diberi izin kontrol kamera, sehingga penonton biasa tidak
 // bisa mengirim suara ke kamera atau mendengar suara kamera.
 export async function handleCameraAudioSignaling(
   request: NextRequest,
@@ -19,12 +19,12 @@ export async function handleCameraAudioSignaling(
       return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
     }
 
-    if ((session.user.role as string) !== 'ADMINISTRATOR') {
+    const { id } = await context.params;
+    const { user, camera } = await findAccessibleCamera(session.user.email, id);
+
+    if (!canControlCamera(user)) {
       return NextResponse.json({ message: 'Forbidden' }, { status: 403 });
     }
-
-    const { id } = await context.params;
-    const { camera } = await findAccessibleCamera(session.user.email, id);
 
     if (!camera) {
       return NextResponse.json(

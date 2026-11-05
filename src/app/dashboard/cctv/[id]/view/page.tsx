@@ -587,25 +587,25 @@ export default function ViewCCTVPage() {
           )}
 
           {/* Mobile: ikon di bawah video dengan bottom sheet. Desktop: kartu. */}
-          {isAdmin && (
+          {camera.canControl && (
             <div className='md:hidden'>
               <CameraMobileControls
                 cameraId={camera.id}
                 audioEnabled={Boolean(
                   camera.audioEnabled && camera.go2rtcStream
                 )}
-                ptzEnabled={Boolean(camera.ptzEnabled && camera.isapiHost)}
+                ptzEnabled={Boolean(camera.ptzAvailable)}
                 videoRef={playerContainerRef}
               />
             </div>
           )}
 
           <div className='hidden md:block space-y-4'>
-            {isAdmin && camera.ptzEnabled && camera.isapiHost && (
+            {camera.canControl && camera.ptzAvailable && (
               <PtzControls cameraId={camera.id} />
             )}
 
-            {isAdmin && camera.audioEnabled && camera.go2rtcStream && (
+            {camera.canControl && camera.audioEnabled && camera.go2rtcStream && (
               <div className='grid grid-cols-1 gap-4 sm:grid-cols-2'>
                 <ListenButton cameraId={camera.id} />
                 <TalkButton cameraId={camera.id} />

@@ -85,6 +85,7 @@ export async function GET(_request: NextRequest) {
       name: user.name,
       email: user.email,
       role: user.role?.name ?? null,
+      canControlCamera: user.canControlCamera,
       projects: user.projectUsers.map((pu) => pu.project),
     }));
 
