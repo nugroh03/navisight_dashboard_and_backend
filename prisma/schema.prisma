@@ -29,6 +29,8 @@ model User {
   accountType        AccountType      @default(INTERNAL_STAFF)
   canAccessDashboard Boolean          @default(true)
   canAccessMobile    Boolean          @default(true)
+  // Izin kontrol kamera (PTZ, mic, dengarkan) untuk non-ADMINISTRATOR; diatur ADMINISTRATOR
+  canControlCamera   Boolean          @default(false)
   projectUsers       ProjectUser[]
   messageChannels    MessageChannel[] @relation("MessageChannelCreatedBy")
   messages           Message[]

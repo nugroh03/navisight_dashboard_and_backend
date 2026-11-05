@@ -47,6 +47,8 @@ export interface CCTV {
   isapiHost?: string | null; // hanya dikirim ke ADMINISTRATOR
   ptzEnabled?: boolean;
   audioEnabled?: boolean;
+  canControl?: boolean; // boleh PTZ/mic/dengarkan (ADMINISTRATOR atau CLIENT berizin)
+  ptzAvailable?: boolean; // ptzEnabled dan isapiHost terisi
   project?: Project;
   createdAt: Date;
   updatedAt: Date;

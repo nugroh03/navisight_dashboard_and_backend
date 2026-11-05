@@ -3,7 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/auth/config';
 import { prisma } from '@/lib/prisma';
 import { updateCCTVSchema } from '@/lib/validations';
-import { findAccessibleCamera } from '@/lib/camera-access';
+import { canControlCamera, findAccessibleCamera } from '@/lib/camera-access';
 import { resolveCameraStatus } from '@/lib/camera-status';
 import { z } from 'zod';
 
@@ -35,6 +35,7 @@ export async function GET(
     }
 
     const isAdmin = user?.role?.name === 'ADMINISTRATOR';
+    const canControl = canControlCamera(user);
 
     // Transform to match CCTV interface
     const transformedCamera = {
@@ -50,6 +51,9 @@ export async function GET(
       isapiHost: isAdmin ? camera.isapiHost : undefined,
       ptzEnabled: camera.ptzEnabled,
       audioEnabled: camera.audioEnabled,
+      // Kontrol PTZ/mic/dengarkan; isapiHost tetap disembunyikan dari non-admin.
+      canControl,
+      ptzAvailable: Boolean(camera.ptzEnabled && camera.isapiHost),
       project: camera.project,
       createdAt: camera.createdAt,
       updatedAt: camera.updatedAt,

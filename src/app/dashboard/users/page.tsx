@@ -15,6 +15,7 @@ type UserRow = {
   name: string | null;
   email: string;
   role: string | null;
+  canControlCamera?: boolean;
   projects: ProjectOption[];
 };
 
@@ -177,6 +178,26 @@ export default function UsersPage() {
     },
     onError: (err: Error) => {
       setErrors([err.message]);
+    },
+  });
+
+  const cameraControlMutation = useMutation({
+    mutationFn: async ({ id, enabled }: { id: string; enabled: boolean }) => {
+      const response = await fetch(`/api/users/${id}/camera-control`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled }),
+      });
+      if (!response.ok) {
+        const data = await response.json().catch(() => null);
+        throw new Error(data?.message ?? 'Gagal mengubah izin kontrol kamera.');
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+    },
+    onError: (err: Error) => {
+      window.alert(err.message);
     },
   });
 
@@ -399,6 +420,41 @@ export default function UsersPage() {
                       <span>Belum terhubung ke project.</span>
                     )}
                   </div>
+                  {isAdmin && user.role === 'CLIENT' && (
+                    <label className='flex w-fit cursor-pointer items-center gap-3 pt-1 text-sm text-[var(--color-text)]'>
+                      <button
+                        type='button'
+                        role='switch'
+                        aria-checked={Boolean(user.canControlCamera)}
+                        disabled={cameraControlMutation.isPending}
+                        onClick={() =>
+                          cameraControlMutation.mutate({
+                            id: user.id,
+                            enabled: !user.canControlCamera,
+                          })
+                        }
+                        className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors disabled:opacity-50 ${
+                          user.canControlCamera
+                            ? 'bg-[var(--color-primary)]'
+                            : 'bg-slate-300'
+                        }`}
+                      >
+                        <span
+                          className={`inline-block h-5 w-5 rounded-full bg-white shadow transition-transform ${
+                            user.canControlCamera
+                              ? 'translate-x-5'
+                              : 'translate-x-0.5'
+                          }`}
+                        />
+                      </button>
+                      <span>
+                        Kontrol PTZ &amp; Mic{' '}
+                        <span className='text-[var(--color-muted)]'>
+                          ({user.canControlCamera ? 'diizinkan' : 'hanya menonton'})
+                        </span>
+                      </span>
+                    </label>
+                  )}
                 </div>
                 <div className='flex flex-wrap gap-2'>
                   <button

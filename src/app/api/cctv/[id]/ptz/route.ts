@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { z } from 'zod';
 import { authOptions } from '@/auth/config';
-import { findAccessibleCamera } from '@/lib/camera-access';
+import { canControlCamera, findAccessibleCamera } from '@/lib/camera-access';
 import { isapiRequest, IsapiNotConfiguredError } from '@/lib/isapi';
 
 // Kamera hanya mendukung PTZ continuous (bergerak sampai diberi stop).
@@ -44,7 +44,7 @@ const clearAutoStop = (cameraId: string) => {
   }
 };
 
-// PTZ untuk saat ini hanya ADMINISTRATOR; kamera juga harus ptzEnabled & punya isapiHost.
+// PTZ untuk ADMINISTRATOR dan CLIENT yang diberi izin kontrol kamera; kamera juga harus ptzEnabled & punya isapiHost.
 async function authorize(cameraId: string) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.email) {
@@ -52,12 +52,15 @@ async function authorize(cameraId: string) {
       error: NextResponse.json({ message: 'Unauthorized' }, { status: 401 }),
     };
   }
-  if ((session.user.role as string) !== 'ADMINISTRATOR') {
+  const { user, camera } = await findAccessibleCamera(
+    session.user.email,
+    cameraId
+  );
+  if (!canControlCamera(user)) {
     return {
       error: NextResponse.json({ message: 'Forbidden' }, { status: 403 }),
     };
   }
-  const { camera } = await findAccessibleCamera(session.user.email, cameraId);
   if (!camera) {
     return {
       error: NextResponse.json(
