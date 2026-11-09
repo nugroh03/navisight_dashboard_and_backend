@@ -5,7 +5,7 @@ import { prisma } from '@/lib/prisma';
 const DAY_MS = 86_400_000;
 const MAX_RANGE_DAYS = 92;
 const MAX_LOGS = 20_000;
-const KIND_ORDER: Record<string, number> = { PC: 0, INTERNET: 1, CAMERA: 2 };
+const KIND_ORDER: Record<string, number> = { PC: 0, INTERNET: 1, CAMERA: 2, RECORDING: 3 };
 
 const parseDate = (value: string | null) => {
   if (!value) return null;
@@ -100,7 +100,10 @@ export async function GET(request: NextRequest) {
         agentId: device.agentId,
         kind: device.kind,
         key: device.key,
-        name: device.camera?.name || device.name,
+        name:
+          device.kind === 'RECORDING'
+            ? `Rekaman ${device.camera?.name || device.key.replace(/^rec:/, '')}`
+            : device.camera?.name || device.name,
         location: device.camera?.location ?? null,
         currentStatus: device.currentStatus,
         statusSince: device.statusSince,

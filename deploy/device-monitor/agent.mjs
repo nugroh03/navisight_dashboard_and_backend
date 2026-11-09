@@ -1,14 +1,16 @@
 #!/usr/bin/env node
 // Agent pemantau hidup/mati PC lokal, kamera, dan internet Starlink.
 // Melapor ke dashboard (POST /api/monitoring/report) tiap INTERVAL_SEC; laporan sekaligus
-// heartbeat. Hanya membaca: cek TCP ke kamera/internet, membaca journal & /proc.
-// TIDAK menyentuh Shinobi, go2rtc, atau kamera.
+// heartbeat. Hanya membaca: cek TCP ke kamera/internet, membaca journal & /proc, dan
+// melihat waktu file rekaman Shinobi. TIDAK menyentuh Shinobi, go2rtc, atau kamera.
 //
 // Env (lihat .env.example): MONITOR_URL, MONITOR_TOKEN, CAMERAS, ROUTER_IP,
-// INTERNET_TARGETS, INTERVAL_SEC, STATE_DIRECTORY. Flag: --once (satu siklus lalu keluar),
+// INTERNET_TARGETS, INTERVAL_SEC, STATE_DIRECTORY, SHINOBI_VIDEOS, RECORDINGS,
+// RECORDING_STALE_MIN. Flag: --once (satu siklus lalu keluar),
 // --dry-run (cetak laporan, tidak mengirim).
 import { execFile } from 'node:child_process';
 import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
+import { readdir, stat } from 'node:fs/promises';
 import { Socket } from 'node:net';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
@@ -38,6 +40,21 @@ const CONFIG = {
       const [ip, ...name] = c.split('=');
       return { ip: ip.trim(), name: name.join('=').trim() || `Kamera ${ip.trim()}` };
     }),
+  // Rekaman Shinobi: folder video grup, dan pasangan "monitorId=ip kamera".
+  shinobiVideos: env.SHINOBI_VIDEOS || '',
+  recordings: (env.RECORDINGS || '')
+    .split(',')
+    .map((r) => r.trim())
+    .filter(Boolean)
+    .map((r) => {
+      const [monitorId, ip] = r.split('=').map((x) => x.trim());
+      return { monitorId, ip };
+    })
+    .filter((r) => r.monitorId && r.ip),
+  // Segmen Shinobi 5 menit; tanpa file baru selama ini = tidak merekam.
+  recordingStaleMs: Math.max(6, Number(env.RECORDING_STALE_MIN) || 12) * 60_000,
+  // Setelah PC menyala, beri Shinobi waktu memulai rekaman.
+  recordingGraceMs: Math.max(0, Number(env.RECORDING_BOOT_GRACE_MIN) || 10) * 60_000,
   failuresBeforeOffline: 2,
   maxEventsPerReport: 1000,
 };
@@ -167,7 +184,7 @@ async function internetReachable() {
  * Catat perubahan status. Gagal harus terjadi FAILURES_BEFORE_OFFLINE kali berturut-turut
  * (gangguan sesaat Starlink diabaikan); waktu event = saat gagal pertama.
  */
-function observe(state, key, ok, failStatus, failReason, now) {
+function observe(state, key, ok, failStatus, failReason, now, threshold = CONFIG.failuresBeforeOffline) {
   state.statuses ??= {};
   state.failures ??= {};
   const current = state.statuses[key];
@@ -184,7 +201,7 @@ function observe(state, key, ok, failStatus, failReason, now) {
   const f = state.failures[key] ?? { count: 0, since: now.toISOString() };
   f.count += 1;
   state.failures[key] = f;
-  if (f.count >= CONFIG.failuresBeforeOffline && current !== failStatus) {
+  if (f.count >= threshold && current !== failStatus) {
     state.statuses[key] = failStatus;
     queueEvent(state, key, failStatus, failReason, new Date(f.since));
   }
@@ -198,15 +215,76 @@ function queueEvent(state, key, status, reason, at) {
   log(`status ${key} -> ${status}${reason ? ` (${reason})` : ''}`);
 }
 
+const recordingsEnabled = () => !!CONFIG.shinobiVideos && CONFIG.recordings.length > 0;
+
 function devices() {
+  const cameraName = new Map(CONFIG.cameras.map((c) => [c.ip, c.name]));
   return [
     { key: 'pc', kind: 'PC', name: 'PC lokal' },
     { key: 'internet', kind: 'INTERNET', name: 'Internet Starlink' },
     ...CONFIG.cameras.map((c) => ({ key: c.ip, kind: 'CAMERA', name: c.name })),
+    ...(recordingsEnabled()
+      ? CONFIG.recordings.map((r) => ({
+          key: `rec:${r.ip}`,
+          kind: 'RECORDING',
+          name: `Rekaman ${cameraName.get(r.ip) ?? r.ip}`,
+        }))
+      : []),
   ];
 }
 
-async function checkAll(state) {
+// Tanggal lokal YYYY-MM-DD (folder hasil shinobi-organize-by-date).
+const localDate = (d) => d.toLocaleDateString('sv-SE');
+
+/** Waktu ubah file .mp4 terbaru milik satu monitor (folder utama + folder hari ini). */
+async function newestRecording(monitorId, now) {
+  const base = join(CONFIG.shinobiVideos, monitorId);
+  let newest = 0;
+  for (const dir of [base, join(base, localDate(now))]) {
+    let names;
+    try {
+      names = await readdir(dir);
+    } catch {
+      continue;
+    }
+    // Nama file = waktu mulai segmen; cukup periksa beberapa yang terbaru.
+    const mp4 = names.filter((n) => n.endsWith('.mp4')).sort().slice(-3);
+    for (const name of mp4) {
+      try {
+        const s = await stat(join(dir, name));
+        if (s.mtimeMs > newest) newest = s.mtimeMs;
+      } catch {
+        // file baru saja dipindah oleh organize-by-date
+      }
+    }
+  }
+  return newest;
+}
+
+async function checkRecordings(state, now, bootedAt) {
+  if (!recordingsEnabled()) return;
+  if (now.getTime() - bootedAt.getTime() < CONFIG.recordingGraceMs) return;
+  state.cameraOnlineAt ??= {};
+  for (const r of CONFIG.recordings) {
+    const key = `rec:${r.ip}`;
+    if (state.statuses?.[r.ip] !== 'ONLINE') {
+      delete state.cameraOnlineAt[r.ip];
+      // Kamera mati/tidak terjangkau: rekaman tidak bisa dinilai.
+      if (state.statuses?.[r.ip] !== undefined && state.statuses?.[key] !== undefined) {
+        delete state.failures?.[key];
+        observe(state, key, false, 'UNKNOWN', 'CAMERA_OFF', now, 1);
+        delete state.failures?.[key];
+      }
+      continue;
+    }
+    // Kamera baru tersambung lagi: beri Shinobi waktu menyambung ulang sebelum dinilai.
+    state.cameraOnlineAt[r.ip] ??= now.getTime();
+    const newest = Math.max(await newestRecording(r.monitorId, now), state.cameraOnlineAt[r.ip]);
+    observe(state, key, now.getTime() - newest < CONFIG.recordingStaleMs, 'OFFLINE', 'NOT_RECORDING', now);
+  }
+}
+
+async function checkAll(state, bootedAt) {
   const now = new Date();
   const [router, internet, cams] = await Promise.all([
     routerReachable(),
@@ -219,6 +297,7 @@ async function checkAll(state) {
     // Router/LAN putus: kamera tidak bisa dinilai, jangan dicatat mati.
     observe(state, c.ip, cams[i], router ? 'OFFLINE' : 'UNKNOWN', router ? 'UNREACHABLE' : 'LAN_DOWN', now);
   });
+  await checkRecordings(state, now, bootedAt);
   state.lastAliveAt = now.toISOString();
 }
 
@@ -281,6 +360,7 @@ async function main() {
     // menandainya "tidak terpantau" saat PC mati). Antrean lama tetap dikirim.
     state.statuses = {};
     state.failures = {};
+    state.cameraOnlineAt = {};
     state.bootId = boot.id;
     state.previousBootSentFor = null;
   } else if (state.previousBoot) {
@@ -288,7 +368,10 @@ async function main() {
   }
   state.previousBoot = boot.previous;
   saveState(state);
-  log(`agent mulai: boot ${boot.id.slice(0, 8)} sejak ${boot.bootedAt.toISOString()}, ${CONFIG.cameras.length} kamera`);
+  log(
+    `agent mulai: boot ${boot.id.slice(0, 8)} sejak ${boot.bootedAt.toISOString()}, ${CONFIG.cameras.length} kamera, ` +
+      `${recordingsEnabled() ? CONFIG.recordings.length : 0} rekaman`
+  );
 
   let stopping = false;
   let busy = false;
@@ -296,7 +379,7 @@ async function main() {
     if (busy) return;
     busy = true;
     try {
-      await checkAll(state);
+      await checkAll(state, boot.bootedAt);
       const extra = {};
       if (!state.historySent) extra.bootHistory = await bootHistory(boot.id).catch(() => []);
       const r = await send(state, boot, extra);

@@ -10,7 +10,9 @@ import {
   Loader2,
   RefreshCw,
   Satellite,
+  Video,
 } from 'lucide-react';
+import { TelegramSettings } from './TelegramSettings';
 
 type Status = 'ONLINE' | 'OFFLINE' | 'UNKNOWN';
 
@@ -24,7 +26,7 @@ type Period = {
 
 type Device = {
   id: string;
-  kind: 'PC' | 'CAMERA' | 'INTERNET';
+  kind: 'PC' | 'CAMERA' | 'INTERNET' | 'RECORDING';
   key: string;
   name: string;
   location: string | null;
@@ -95,8 +97,17 @@ const REASON_LABEL: Record<string, string> = {
   UNREACHABLE: 'Tidak terjangkau di jaringan',
   LAN_DOWN: 'Jaringan lokal putus',
   RECOVERED: 'Pulih',
+  NOT_RECORDING: 'Kamera hidup tapi tidak merekam',
+  CAMERA_OFF: 'Kamera mati, rekaman tidak dinilai',
 };
-const KIND_ICON = { PC: Cpu, CAMERA: Camera, INTERNET: Satellite };
+const KIND_ICON = { PC: Cpu, CAMERA: Camera, INTERNET: Satellite, RECORDING: Video };
+const RECORDING_LABEL: Record<Status, string> = {
+  ONLINE: 'Merekam',
+  OFFLINE: 'Tidak merekam',
+  UNKNOWN: 'Tidak terpantau',
+};
+const statusLabel = (kind: Device['kind'], status: Status) =>
+  kind === 'RECORDING' ? RECORDING_LABEL[status] : STATUS_LABEL[status];
 
 const TZ = 'Asia/Jakarta';
 const formatDateTime = (value: string | Date) =>
@@ -126,13 +137,13 @@ const reasonText = (p: Period) =>
     ? 'Menunggu laporan PC'
     : (p.reason && REASON_LABEL[p.reason]) || STATUS_LABEL[p.status];
 
-function StatusBadge({ status }: { status: Status }) {
+function StatusBadge({ status, label }: { status: Status; label?: string }) {
   return (
     <span
       className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold ring-1 ${STATUS_BADGE[status]}`}
     >
       <span className={`h-1.5 w-1.5 rounded-full ${STATUS_BAR[status]}`} />
-      {STATUS_LABEL[status]}
+      {label ?? STATUS_LABEL[status]}
     </span>
   );
 }
@@ -146,10 +157,22 @@ function Banner({ children }: { children: ReactNode }) {
   );
 }
 
-function Timeline({ device, from, to }: { device: Device; from: number; to: number }) {
+function Timeline({
+  device,
+  from,
+  to,
+  thin = false,
+}: {
+  device: Device;
+  from: number;
+  to: number;
+  thin?: boolean;
+}) {
   const span = to - from;
   return (
-    <div className='relative h-6 w-full overflow-hidden rounded-md bg-slate-100'>
+    <div
+      className={`relative w-full overflow-hidden bg-slate-100 ${thin ? 'h-2 rounded-sm' : 'h-6 rounded-md'}`}
+    >
       {device.periods.map((p, i) => {
         const start = Math.max(new Date(p.startedAt).getTime(), from);
         const end = Math.min(p.endedAt ? new Date(p.endedAt).getTime() : to, to);
@@ -157,7 +180,7 @@ function Timeline({ device, from, to }: { device: Device; from: number; to: numb
         return (
           <div
             key={i}
-            title={`${STATUS_LABEL[p.status]} · ${reasonText(p)}\n${formatDateTime(p.startedAt)} – ${
+            title={`${statusLabel(device.kind, p.status)} · ${reasonText(p)}\n${formatDateTime(p.startedAt)} – ${
               p.endedAt ? formatDateTime(p.endedAt) : 'sekarang'
             } (${formatDuration(end - start)})`}
             className={`absolute inset-y-0 ${STATUS_BAR[p.status]} ${p.provisional ? 'opacity-50' : ''}`}
@@ -238,6 +261,13 @@ export default function DevicesPage() {
   const to = data ? new Date(data.to).getTime() : 0;
   const now = data ? new Date(data.now).getTime() : 0;
   const lostAgents = data?.agents.filter((a) => !a.online) ?? [];
+  // Rekaman Shinobi ditampilkan menempel pada kartu & linimasa kameranya.
+  const mainDevices = data?.devices.filter((d) => d.kind !== 'RECORDING') ?? [];
+  const recordingOf = new Map(
+    (data?.devices ?? [])
+      .filter((d) => d.kind === 'RECORDING')
+      .map((d) => [d.key.replace(/^rec:/, ''), d] as const)
+  );
 
   return (
     <div className='mx-auto max-w-6xl space-y-6'>
@@ -245,7 +275,7 @@ export default function DevicesPage() {
         <div>
           <h1 className='text-2xl font-semibold text-[var(--color-text)]'>Riwayat Perangkat</h1>
           <p className='mt-1 text-sm text-[var(--color-muted)]'>
-            Catatan hidup/mati PC, Starlink, dan kamera. Diperbarui tiap 30 detik.
+            Catatan hidup/mati PC, Starlink, kamera, dan rekaman. Diperbarui tiap 30 detik.
           </p>
         </div>
         <div className='flex flex-wrap items-center gap-2'>
@@ -332,8 +362,9 @@ export default function DevicesPage() {
       {data && (
         <>
           <section className='grid gap-2 sm:grid-cols-2 sm:gap-3 lg:grid-cols-3'>
-            {data.devices.map((d) => {
+            {mainDevices.map((d) => {
               const Icon = KIND_ICON[d.kind] ?? Camera;
+              const rec = d.kind === 'CAMERA' ? recordingOf.get(d.key) : undefined;
               const selected = deviceFilter === d.id;
               return (
                 <button
@@ -374,6 +405,22 @@ export default function DevicesPage() {
                       {d.stats.offlineMs > 0 && ` · ${formatDuration(d.stats.offlineMs)}`}
                     </span>
                   </div>
+                  {rec && (
+                    <div className='flex items-center justify-between border-t border-[var(--color-border)] pt-2 text-xs'>
+                      <span className='inline-flex items-center gap-1.5 text-[var(--color-muted)]'>
+                        <Video className='h-3.5 w-3.5' /> Rekaman
+                        {rec.stats.uptimePct !== null && (
+                          <strong className='text-[var(--color-text)]'>
+                            {rec.stats.uptimePct.toFixed(1)}%
+                          </strong>
+                        )}
+                      </span>
+                      <StatusBadge
+                        status={rec.currentStatus}
+                        label={statusLabel('RECORDING', rec.currentStatus)}
+                      />
+                    </div>
+                  )}
                 </button>
               );
             })}
@@ -389,15 +436,22 @@ export default function DevicesPage() {
                     {STATUS_LABEL[s]}
                   </span>
                 ))}
+                {recordingOf.size > 0 && <span>Garis tipis = rekaman</span>}
               </div>
             </div>
             <div className='space-y-2.5'>
-              {data.devices.map((d) => (
-                <div key={d.id} className='grid gap-1 sm:grid-cols-[10rem_1fr] sm:items-center sm:gap-3'>
-                  <p className='truncate text-xs font-medium text-[var(--color-text)]'>{d.name}</p>
-                  <Timeline device={d} from={from} to={to} />
-                </div>
-              ))}
+              {mainDevices.map((d) => {
+                const rec = d.kind === 'CAMERA' ? recordingOf.get(d.key) : undefined;
+                return (
+                  <div key={d.id} className='grid gap-1 sm:grid-cols-[10rem_1fr] sm:items-center sm:gap-3'>
+                    <p className='truncate text-xs font-medium text-[var(--color-text)]'>{d.name}</p>
+                    <div className='space-y-1'>
+                      <Timeline device={d} from={from} to={to} />
+                      {rec && <Timeline device={rec} from={from} to={to} thin />}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
             <div className='flex justify-between text-xs text-[var(--color-muted)] sm:pl-[10.75rem]'>
               <span>{formatDateTime(data.from)}</span>
@@ -456,7 +510,7 @@ export default function DevicesPage() {
                         <p className='text-xs text-[var(--color-muted)]'>{reasonText(period)}</p>
                       </div>
                       <div className='justify-self-end sm:justify-self-start'>
-                        <StatusBadge status={period.status} />
+                        <StatusBadge status={period.status} label={statusLabel(device.kind, period.status)} />
                       </div>
                       <p className='text-xs text-[var(--color-text)]'>
                         {formatDateTime(period.startedAt)} –{' '}
@@ -480,6 +534,7 @@ export default function DevicesPage() {
               </button>
             )}
           </section>
+          <TelegramSettings />
         </>
       )}
     </div>
