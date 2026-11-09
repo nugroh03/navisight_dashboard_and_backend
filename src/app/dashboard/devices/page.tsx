@@ -3,147 +3,55 @@
 import { useMemo, useState, type ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useSession } from 'next-auth/react';
-import {
-  AlertTriangle,
-  Camera,
-  Cpu,
-  Loader2,
-  RefreshCw,
-  Satellite,
-  Video,
-} from 'lucide-react';
+import { AlertTriangle, Camera, Cpu, Loader2, RefreshCw, Satellite, Video } from 'lucide-react';
 import { TelegramSettings } from './TelegramSettings';
-
-type Status = 'ONLINE' | 'OFFLINE' | 'UNKNOWN';
-
-type Period = {
-  status: Status;
-  reason: string | null;
-  startedAt: string;
-  endedAt: string | null;
-  provisional: boolean;
-};
-
-type Device = {
-  id: string;
-  kind: 'PC' | 'CAMERA' | 'INTERNET' | 'RECORDING';
-  key: string;
-  name: string;
-  location: string | null;
-  currentStatus: Status;
-  statusSince: string | null;
-  lastCheckedAt: string | null;
-  stats: {
-    onlineMs: number;
-    offlineMs: number;
-    unknownMs: number;
-    uptimePct: number | null;
-    outages: number;
-  };
-  periods: Period[];
-};
-
-type Agent = {
-  id: string;
-  name: string;
-  lastSeenAt: string | null;
-  lostAt: string | null;
-  online: boolean;
-};
-
-type DevicesData = {
-  from: string;
-  to: string;
-  now: string;
-  truncated: boolean;
-  agents: Agent[];
-  devices: Device[];
-};
+import { NowSummary } from './NowSummary';
+import { DeviceTimeline } from './DeviceTimeline';
+import { IncidentList } from './IncidentList';
+import {
+  DAY_MS,
+  HOUR_MS,
+  formatDuration,
+  formatWhen,
+  statusLabel,
+  withRecordingNames,
+  type DevicesData,
+  type Status,
+} from './history';
 
 type RangeKey = '24h' | '7d' | '30d' | 'custom';
 
-const HOUR_MS = 3_600_000;
-const DAY_MS = 24 * HOUR_MS;
 const PRESETS: { key: Exclude<RangeKey, 'custom'>; label: string; ms: number }[] = [
   { key: '24h', label: '24 jam', ms: DAY_MS },
   { key: '7d', label: '7 hari', ms: 7 * DAY_MS },
   { key: '30d', label: '30 hari', ms: 30 * DAY_MS },
 ];
 
-const STATUS_LABEL: Record<Status, string> = {
-  ONLINE: 'Hidup',
-  OFFLINE: 'Mati',
-  UNKNOWN: 'Tidak terpantau',
-};
 const STATUS_BADGE: Record<Status, string> = {
   ONLINE: 'bg-emerald-50 text-emerald-700 ring-emerald-200',
   OFFLINE: 'bg-red-50 text-red-700 ring-red-200',
   UNKNOWN: 'bg-slate-100 text-slate-600 ring-slate-200',
 };
-const STATUS_BAR: Record<Status, string> = {
+const STATUS_DOT: Record<Status, string> = {
   ONLINE: 'bg-emerald-500',
   OFFLINE: 'bg-red-500',
   UNKNOWN: 'bg-slate-300',
 };
-const REASON_LABEL: Record<string, string> = {
-  BOOT: 'PC menyala',
-  POWER_LOSS: 'Mati mendadak (listrik/hang)',
-  REBOOT: 'Restart',
-  SHUTDOWN: 'Dimatikan normal',
-  NO_HEARTBEAT: 'PC tidak melapor',
-  PC_OFF: 'PC mati, tidak bisa dicek',
-  NO_INTERNET: 'Internet putus',
-  ROUTER_DOWN: 'Router tidak terjangkau',
-  UNREACHABLE: 'Tidak terjangkau di jaringan',
-  LAN_DOWN: 'Jaringan lokal putus',
-  RECOVERED: 'Pulih',
-  NOT_RECORDING: 'Kamera hidup tapi tidak merekam',
-  CAMERA_OFF: 'Kamera mati, rekaman tidak dinilai',
-};
 const KIND_ICON = { PC: Cpu, CAMERA: Camera, INTERNET: Satellite, RECORDING: Video };
-const RECORDING_LABEL: Record<Status, string> = {
-  ONLINE: 'Merekam',
-  OFFLINE: 'Tidak merekam',
-  UNKNOWN: 'Tidak terpantau',
-};
-const statusLabel = (kind: Device['kind'], status: Status) =>
-  kind === 'RECORDING' ? RECORDING_LABEL[status] : STATUS_LABEL[status];
 
-const TZ = 'Asia/Jakarta';
-const formatDateTime = (value: string | Date) =>
-  new Date(value).toLocaleString('id-ID', {
-    timeZone: TZ,
-    day: '2-digit',
-    month: 'short',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-const formatDuration = (ms: number) => {
-  const minutes = Math.round(ms / 60_000);
-  if (minutes < 1) return '< 1 menit';
-  if (minutes < 60) return `${minutes} menit`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours} jam ${minutes % 60} menit`;
-  return `${Math.floor(hours / 24)} hari ${hours % 24} jam`;
-};
 // Tanggal (YYYY-MM-DD) dalam WIB untuk input type=date.
 const toDateInput = (date: Date) =>
   new Date(date.getTime() + 7 * HOUR_MS).toISOString().slice(0, 10);
 const fromDateInput = (value: string, endOfDay: boolean) =>
   new Date(`${value}T${endOfDay ? '23:59:59' : '00:00:00'}+07:00`);
 
-const reasonText = (p: Period) =>
-  p.provisional
-    ? 'Menunggu laporan PC'
-    : (p.reason && REASON_LABEL[p.reason]) || STATUS_LABEL[p.status];
-
-function StatusBadge({ status, label }: { status: Status; label?: string }) {
+function StatusBadge({ status, label }: { status: Status; label: string }) {
   return (
     <span
       className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold ring-1 ${STATUS_BADGE[status]}`}
     >
-      <span className={`h-1.5 w-1.5 rounded-full ${STATUS_BAR[status]}`} />
-      {label ?? STATUS_LABEL[status]}
+      <span className={`h-1.5 w-1.5 rounded-full ${STATUS_DOT[status]}`} />
+      {label}
     </span>
   );
 }
@@ -157,45 +65,6 @@ function Banner({ children }: { children: ReactNode }) {
   );
 }
 
-function Timeline({
-  device,
-  from,
-  to,
-  thin = false,
-}: {
-  device: Device;
-  from: number;
-  to: number;
-  thin?: boolean;
-}) {
-  const span = to - from;
-  return (
-    <div
-      className={`relative w-full overflow-hidden bg-slate-100 ${thin ? 'h-2 rounded-sm' : 'h-6 rounded-md'}`}
-    >
-      {device.periods.map((p, i) => {
-        const start = Math.max(new Date(p.startedAt).getTime(), from);
-        const end = Math.min(p.endedAt ? new Date(p.endedAt).getTime() : to, to);
-        if (end <= start) return null;
-        return (
-          <div
-            key={i}
-            title={`${statusLabel(device.kind, p.status)} · ${reasonText(p)}\n${formatDateTime(p.startedAt)} – ${
-              p.endedAt ? formatDateTime(p.endedAt) : 'sekarang'
-            } (${formatDuration(end - start)})`}
-            className={`absolute inset-y-0 ${STATUS_BAR[p.status]} ${p.provisional ? 'opacity-50' : ''}`}
-            style={{
-              left: `${((start - from) / span) * 100}%`,
-              // Minimal 2px agar gangguan singkat tetap terlihat.
-              width: `max(2px, ${((end - start) / span) * 100}%)`,
-            }}
-          />
-        );
-      })}
-    </div>
-  );
-}
-
 export default function DevicesPage() {
   const { data: session, status } = useSession();
   const isAdmin = session?.user?.role === 'ADMINISTRATOR';
@@ -203,8 +72,6 @@ export default function DevicesPage() {
   const [customFrom, setCustomFrom] = useState(() => toDateInput(new Date(Date.now() - 7 * DAY_MS)));
   const [customTo, setCustomTo] = useState(() => toDateInput(new Date()));
   const [deviceFilter, setDeviceFilter] = useState<string>('all');
-  const [showAll, setShowAll] = useState(false);
-  const [limit, setLimit] = useState(50);
 
   const query = useMemo(() => {
     if (range === 'custom') {
@@ -225,24 +92,12 @@ export default function DevicesPage() {
       const response = await fetch(`/api/monitoring/devices?${qs}`);
       const body = await response.json().catch(() => null);
       if (!response.ok) throw new Error(body?.message ?? 'Gagal memuat riwayat perangkat');
-      return body as DevicesData;
+      const result = body as DevicesData;
+      return { ...result, devices: withRecordingNames(result.devices) };
     },
     enabled: isAdmin,
     refetchInterval: range === 'custom' ? false : 30_000,
   });
-
-  const events = useMemo(() => {
-    if (!data) return [];
-    const rows = data.devices
-      .filter((d) => deviceFilter === 'all' || d.id === deviceFilter)
-      .flatMap((d) => d.periods.map((p) => ({ device: d, period: p })))
-      .filter(({ period }) => showAll || period.status !== 'ONLINE');
-    rows.sort(
-      (a, b) =>
-        new Date(b.period.startedAt).getTime() - new Date(a.period.startedAt).getTime()
-    );
-    return rows;
-  }, [data, deviceFilter, showAll]);
 
   if (status === 'loading' || (isAdmin && isLoading)) {
     return (
@@ -260,7 +115,6 @@ export default function DevicesPage() {
   const from = data ? new Date(data.from).getTime() : 0;
   const to = data ? new Date(data.to).getTime() : 0;
   const now = data ? new Date(data.now).getTime() : 0;
-  const lostAgents = data?.agents.filter((a) => !a.online) ?? [];
   // Rekaman Shinobi ditampilkan menempel pada kartu & linimasa kameranya.
   const mainDevices = data?.devices.filter((d) => d.kind !== 'RECORDING') ?? [];
   const recordingOf = new Map(
@@ -284,10 +138,7 @@ export default function DevicesPage() {
               <button
                 key={p.key}
                 type='button'
-                onClick={() => {
-                  setRange(p.key);
-                  setLimit(50);
-                }}
+                onClick={() => setRange(p.key)}
                 className={`h-9 rounded-lg px-3 text-sm font-semibold transition ${
                   range === p.key
                     ? 'bg-[var(--color-primary-strong)] !text-white'
@@ -345,22 +196,14 @@ export default function DevicesPage() {
       {data && data.agents.length === 0 && (
         <Banner>Belum ada agent pemantau yang terdaftar.</Banner>
       )}
-      {lostAgents.map((agent) => (
-        <Banner key={agent.id}>
-          <strong>{agent.name}</strong> tidak melapor
-          {agent.lastSeenAt
-            ? ` sejak ${formatDateTime(agent.lastSeenAt)} (${formatDuration(now - new Date(agent.lastSeenAt).getTime())} lalu)`
-            : ''}
-          . PC mungkin mati atau internet putus; status kamera tidak terpantau sampai PC
-          melapor lagi.
-        </Banner>
-      ))}
       {data?.truncated && (
         <Banner>Data terlalu banyak untuk rentang ini; pilih rentang yang lebih pendek.</Banner>
       )}
 
       {data && (
         <>
+          <NowSummary devices={data.devices} agents={data.agents} nowMs={now} />
+
           <section className='grid gap-2 sm:grid-cols-2 sm:gap-3 lg:grid-cols-3'>
             {mainDevices.map((d) => {
               const Icon = KIND_ICON[d.kind] ?? Camera;
@@ -385,12 +228,20 @@ export default function DevicesPage() {
                         {d.kind === 'CAMERA' ? d.key : d.kind === 'PC' ? 'PC lokal' : 'Internet'}
                       </p>
                     </div>
-                    <StatusBadge status={d.currentStatus} />
+                    <StatusBadge status={d.currentStatus} label={statusLabel(d.kind, d.currentStatus)} />
                   </div>
                   <p className='text-xs text-[var(--color-muted)]'>
-                    {d.statusSince
-                      ? `Sejak ${formatDateTime(d.statusSince)} · ${formatDuration(now - new Date(d.statusSince).getTime())}`
-                      : 'Belum ada data'}
+                    {d.statusSince ? (
+                      <>
+                        {statusLabel(d.kind, d.currentStatus)} sejak{' '}
+                        <strong className='text-[var(--color-text)]'>
+                          {formatWhen(d.statusSince, now)}
+                        </strong>{' '}
+                        · {formatDuration(now - new Date(d.statusSince).getTime())}
+                      </>
+                    ) : (
+                      'Belum ada data'
+                    )}
                   </p>
                   <div className='flex items-center justify-between text-xs'>
                     <span className='text-[var(--color-muted)]'>
@@ -426,114 +277,20 @@ export default function DevicesPage() {
             })}
           </section>
 
-          <section className='card space-y-3 p-4 sm:p-5'>
-            <div className='flex flex-wrap items-center justify-between gap-2'>
-              <h2 className='font-semibold text-[var(--color-text)]'>Linimasa</h2>
-              <div className='flex flex-wrap gap-3 text-xs text-[var(--color-muted)]'>
-                {(['ONLINE', 'OFFLINE', 'UNKNOWN'] as Status[]).map((s) => (
-                  <span key={s} className='inline-flex items-center gap-1.5'>
-                    <span className={`h-2.5 w-2.5 rounded-sm ${STATUS_BAR[s]}`} />
-                    {STATUS_LABEL[s]}
-                  </span>
-                ))}
-                {recordingOf.size > 0 && <span>Garis tipis = rekaman</span>}
-              </div>
-            </div>
-            <div className='space-y-2.5'>
-              {mainDevices.map((d) => {
-                const rec = d.kind === 'CAMERA' ? recordingOf.get(d.key) : undefined;
-                return (
-                  <div key={d.id} className='grid gap-1 sm:grid-cols-[10rem_1fr] sm:items-center sm:gap-3'>
-                    <p className='truncate text-xs font-medium text-[var(--color-text)]'>{d.name}</p>
-                    <div className='space-y-1'>
-                      <Timeline device={d} from={from} to={to} />
-                      {rec && <Timeline device={rec} from={from} to={to} thin />}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-            <div className='flex justify-between text-xs text-[var(--color-muted)] sm:pl-[10.75rem]'>
-              <span>{formatDateTime(data.from)}</span>
-              <span>{formatDateTime(data.to)}</span>
-            </div>
-          </section>
+          <DeviceTimeline
+            devices={mainDevices}
+            recordingOf={recordingOf}
+            from={from}
+            to={to}
+            nowMs={now}
+          />
 
-          <section className='card p-4 sm:p-5'>
-            <div className='mb-4 flex flex-wrap items-center justify-between gap-3'>
-              <h2 className='font-semibold text-[var(--color-text)]'>
-                {showAll ? 'Semua perubahan status' : 'Daftar gangguan'}
-              </h2>
-              <div className='flex flex-wrap items-center gap-2'>
-                <select
-                  value={deviceFilter}
-                  onChange={(e) => setDeviceFilter(e.target.value)}
-                  className='h-11 rounded-xl border border-[var(--color-border)] bg-white px-3 text-base sm:text-sm'
-                >
-                  <option value='all'>Semua perangkat</option>
-                  {data.devices.map((d) => (
-                    <option key={d.id} value={d.id}>
-                      {d.name}
-                    </option>
-                  ))}
-                </select>
-                <label className='inline-flex h-11 items-center gap-2 text-sm'>
-                  <input
-                    type='checkbox'
-                    checked={showAll}
-                    onChange={(e) => setShowAll(e.target.checked)}
-                    className='h-4 w-4'
-                  />
-                  Tampilkan saat hidup
-                </label>
-              </div>
-            </div>
-
-            {events.length === 0 ? (
-              <p className='py-8 text-center text-sm text-[var(--color-muted)]'>
-                Tidak ada gangguan pada rentang ini.
-              </p>
-            ) : (
-              <ul className='divide-y divide-[var(--color-border)]'>
-                {events.slice(0, limit).map(({ device, period }, i) => {
-                  const start = new Date(period.startedAt).getTime();
-                  const end = period.endedAt ? new Date(period.endedAt).getTime() : now;
-                  return (
-                    <li
-                      key={`${device.id}-${period.startedAt}-${i}`}
-                      className='grid grid-cols-[1fr_auto] gap-x-3 gap-y-1 py-3 sm:grid-cols-[1fr_9rem_14rem_8rem] sm:items-center sm:gap-4'
-                    >
-                      <div className='min-w-0'>
-                        <p className='truncate text-sm font-semibold text-[var(--color-text)]'>
-                          {device.name}
-                        </p>
-                        <p className='text-xs text-[var(--color-muted)]'>{reasonText(period)}</p>
-                      </div>
-                      <div className='justify-self-end sm:justify-self-start'>
-                        <StatusBadge status={period.status} label={statusLabel(device.kind, period.status)} />
-                      </div>
-                      <p className='text-xs text-[var(--color-text)]'>
-                        {formatDateTime(period.startedAt)} –{' '}
-                        {period.endedAt ? formatDateTime(period.endedAt) : 'sekarang'}
-                      </p>
-                      <p className='text-right text-xs font-medium text-[var(--color-text)]'>
-                        {formatDuration(end - start)}
-                      </p>
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
-            {events.length > limit && (
-              <button
-                type='button'
-                onClick={() => setLimit((l) => l + 50)}
-                className='mt-3 h-11 w-full rounded-xl border border-[var(--color-border)] text-sm font-semibold text-[var(--color-text)] hover:bg-slate-50'
-              >
-                Tampilkan lebih banyak ({events.length - limit} lagi)
-              </button>
-            )}
-          </section>
+          <IncidentList
+            devices={data.devices}
+            deviceFilter={deviceFilter}
+            onDeviceFilter={setDeviceFilter}
+            nowMs={now}
+          />
           <TelegramSettings />
         </>
       )}
