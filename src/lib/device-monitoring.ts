@@ -24,6 +24,8 @@ export const DEVICE_STATUSES = ['ONLINE', 'OFFLINE', 'UNKNOWN'] as const;
 export type DeviceStatus = (typeof DEVICE_STATUSES)[number];
 
 export const PC_DEVICE_KEY = 'pc';
+// Penyebab PC mati: dimatikan normal, restart, atau listrik putus/hang (tanpa jejak shutdown).
+export const PC_END_REASONS = ['SHUTDOWN', 'REBOOT', 'POWER_LOSS'] as const;
 const MAX_FUTURE_SKEW_MS = 5 * 60_000;
 
 type Tx = Prisma.TransactionClient;
@@ -55,8 +57,20 @@ export const reportSchema = z.object({
   previousBoot: z
     .object({
       lastSeenAt: isoDate,
-      cleanShutdown: z.boolean(),
+      endReason: z.enum(PC_END_REASONS),
     })
+    .nullish(),
+  // Riwayat boot lama dari journal; dikirim sekali saat agent baru dipasang.
+  bootHistory: z
+    .array(
+      z.object({
+        bootId: z.string().min(1).max(64),
+        bootedAt: isoDate,
+        lastSeenAt: isoDate,
+        endReason: z.enum(PC_END_REASONS),
+      })
+    )
+    .max(1000)
     .nullish(),
   devices: z
     .array(
@@ -268,7 +282,7 @@ export async function ingestReport(
             tx,
             devices,
             'OFFLINE',
-            report.previousBoot?.cleanShutdown ? 'SHUTDOWN' : 'POWER_LOSS',
+            report.previousBoot?.endReason ?? 'POWER_LOSS',
             downAt
           );
         }
@@ -282,6 +296,10 @@ export async function ingestReport(
 
       await apply(afterBoot);
 
+      const imported = report.bootHistory?.length
+        ? await importBootHistory(tx, devices.get(PC_DEVICE_KEY)!, report)
+        : 0;
+
       await tx.monitoredDevice.updateMany({
         where: { agentId, key: { in: report.devices.map((d) => d.key) } },
         data: { lastCheckedAt: now },
@@ -291,10 +309,72 @@ export async function ingestReport(
         data: { lastSeenAt: now, lastBootId: report.bootId, lostAt: null },
       });
 
-      return { applied, newBoot, firstReport };
+      return { applied, newBoot, firstReport, imported };
     },
     { timeout: 30_000 }
   );
+}
+
+/**
+ * Isi riwayat PC sebelum periode tercatat pertama, dari daftar boot di journal.
+ * Hanya boot yang selesai sebelum periode pertama yang dipakai, sehingga aman
+ * dikirim ulang (idempoten) dan tidak menimpa data yang sudah ada.
+ */
+async function importBootHistory(tx: Tx, pc: DeviceState, report: MonitoringReport) {
+  const earliest = await tx.deviceStatusLog.findFirst({
+    where: { deviceId: pc.id },
+    orderBy: { startedAt: 'asc' },
+  });
+  if (!earliest) return 0;
+
+  const boots = (report.bootHistory ?? [])
+    .filter(
+      (b) =>
+        b.bootId !== report.bootId &&
+        b.bootedAt < b.lastSeenAt &&
+        b.lastSeenAt <= earliest.startedAt
+    )
+    .sort((a, b) => a.bootedAt.getTime() - b.bootedAt.getTime());
+
+  // Buang boot yang tumpang tindih (jam sistem sempat salah).
+  const clean: typeof boots = [];
+  for (const b of boots) {
+    const prev = clean.at(-1);
+    if (!prev || b.bootedAt >= prev.lastSeenAt) clean.push(b);
+  }
+  if (clean.length === 0) return 0;
+
+  const rows: Prisma.DeviceStatusLogCreateManyInput[] = [];
+  clean.forEach((b, i) => {
+    const nextStart = clean[i + 1]?.bootedAt ?? earliest.startedAt;
+    rows.push({
+      deviceId: pc.id,
+      status: 'ONLINE',
+      reason: 'BOOT',
+      startedAt: b.bootedAt,
+      endedAt: b.lastSeenAt,
+    });
+    if (i < clean.length - 1 || earliest.status !== 'OFFLINE') {
+      rows.push({
+        deviceId: pc.id,
+        status: 'OFFLINE',
+        reason: b.endReason,
+        startedAt: b.lastSeenAt,
+        endedAt: nextStart,
+      });
+    }
+  });
+
+  const last = clean.at(-1)!;
+  if (earliest.status === 'OFFLINE') {
+    // Periode pertama sudah OFFLINE: perpanjang ke belakang, jangan dobel.
+    await tx.deviceStatusLog.update({
+      where: { id: earliest.id },
+      data: { startedAt: last.lastSeenAt, reason: last.endReason },
+    });
+  }
+  await tx.deviceStatusLog.createMany({ data: rows });
+  return clean.length;
 }
 
 /**

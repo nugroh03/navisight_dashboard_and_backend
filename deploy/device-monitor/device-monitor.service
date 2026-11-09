@@ -1,0 +1,30 @@
+[Unit]
+Description=Device Monitor - riwayat hidup/mati PC, kamera, Starlink
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=trans-laut-jatim
+WorkingDirectory=/opt/device-monitor
+ExecStart=/usr/bin/node /opt/device-monitor/agent.mjs
+EnvironmentFile=/opt/device-monitor/.env
+# Antrean event & status tersimpan di /var/lib/device-monitor (bertahan saat reboot)
+StateDirectory=device-monitor
+Restart=always
+RestartSec=10
+# Saat shutdown: waktu untuk mengirim event SHUTDOWN/REBOOT sebelum jaringan mati
+TimeoutStopSec=10
+Nice=10
+
+# Agent hanya membaca; batasi aksesnya
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=read-only
+PrivateTmp=yes
+
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
