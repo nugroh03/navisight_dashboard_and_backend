@@ -77,6 +77,7 @@ async function checkIntegrity(label: string) {
 
 async function main() {
   await prisma.deviceStatusLog.deleteMany();
+  await prisma.monitoringSettings.deleteMany();
   await prisma.monitoredDevice.deleteMany();
   await prisma.monitorAgent.deleteMany();
   await prisma.camera.deleteMany({ where: { isapiHost: '192.168.1.141' } });
@@ -201,10 +202,93 @@ async function main() {
   clearInterval((globalThis as { __deviceMonitorTimer?: NodeJS.Timeout }).__deviceMonitorTimer);
   await checkIntegrity('pengecek berkala');
 
+  // 10) Rekaman (RECORDING) + notifikasi Telegram (fetch ditiru, tidak ke Telegram asli)
+  process.env.BACKUP_ENCRYPTION_KEY ??= 'a'.repeat(64);
+  const { encryptSecret } = await import('@/lib/backup-crypto');
+  const { runMonitoringAlerts } = await import('@/lib/monitoring-alerts');
+  const sent: string[] = [];
+  let telegramUp = true;
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = (async (url: string, init?: RequestInit) => {
+    assert.ok(String(url).startsWith('https://api.telegram.org/bot123:abc/'), 'hanya ke Telegram');
+    if (!telegramUp) return new Response(JSON.stringify({ ok: false, description: 'down' }), { status: 500 });
+    sent.push(JSON.parse(String(init?.body)).text);
+    return new Response(JSON.stringify({ ok: true, result: {} }), { status: 200 });
+  }) as typeof fetch;
+  await prisma.monitoringSettings.deleteMany();
+  await prisma.monitoringSettings.create({
+    data: { telegramEnabled: true, telegramTokenEnc: encryptSecret('123:abc'), telegramChatId: '42', alertDelayMin: 5 },
+  });
+
+  // Jauh dari data skenario sebelumnya (hari yang sama, sampai 18:41).
+  const t0 = D('23:00').getTime();
+  const T = (min: number) => new Date(t0 + min * 60_000);
+  const devicesRec: MonitoringReport['devices'] = [
+    ...devices,
+    { key: 'rec:192.168.1.141', kind: 'RECORDING', name: 'Rekaman .141' },
+  ];
+  // Agent hilang sejak 6 menit lalu → notifikasi PC tidak melapor
+  await prisma.monitorAgent.update({ where: { id: agent.id }, data: { lastSeenAt: T(-6), lostAt: T(-3) } });
+  assert.equal(await runMonitoringAlerts(T(0)), 1);
+  assert.match(sent.at(-1)!, /tidak melapor/);
+  assert.equal(await runMonitoringAlerts(T(0)), 0, 'tidak dikirim ulang');
+
+  // Agent kembali (boot sama); kamera .34 mati sejak 10 menit lalu; rekaman .141 berhenti
+  await ingestReport(agent.id, {
+    bootId: 'B4', bootedAt: D('18:30'), devices: devicesRec,
+    events: [
+      { key: '192.168.1.34', status: 'OFFLINE', reason: 'UNREACHABLE', at: T(-10) },
+      { key: '192.168.1.141', status: 'ONLINE', at: T(-9) },
+      { key: 'rec:192.168.1.141', status: 'OFFLINE', reason: 'NOT_RECORDING', at: T(-8) },
+    ],
+  }, T(0));
+  const rec = await prisma.monitoredDevice.findFirst({ where: { key: 'rec:192.168.1.141' } });
+  assert.equal(rec!.cameraId, camera.id, 'rekaman tertaut ke kamera .141');
+  assert.equal(await runMonitoringAlerts(T(0)), 3);
+  const msg = sent.at(-1)!;
+  assert.match(msg, /melapor lagi/);
+  assert.match(msg, /Kamera <b>Kamera \.34<\/b>|Kamera <b>.*<\/b> \(192\.168\.1\.34\) mati/);
+  assert.match(msg, /Rekaman <b>Kamera Dermaga<\/b> berhenti: kamera hidup tapi tidak merekam/);
+  assert.equal(await runMonitoringAlerts(T(0)), 0);
+
+  // Gangguan singkat (< 5 menit) tidak dikirim
+  await ingestReport(agent.id, { bootId: 'B4', bootedAt: D('18:30'), devices: devicesRec,
+    events: [{ key: 'internet', status: 'OFFLINE', reason: 'NO_INTERNET', at: T(-1) }] }, T(0));
+  assert.equal(await runMonitoringAlerts(T(0)), 0, 'internet baru 1 menit: belum dikirim');
+
+  // Pulih → pesan pulih dengan durasi
+  await ingestReport(agent.id, { bootId: 'B4', bootedAt: D('18:30'), devices: devicesRec,
+    events: [
+      { key: '192.168.1.34', status: 'ONLINE', reason: 'RECOVERED', at: T(1) },
+      { key: 'internet', status: 'ONLINE', reason: 'RECOVERED', at: T(1) },
+    ] }, T(1));
+  assert.equal(await runMonitoringAlerts(T(1)), 1, 'hanya .34 (internet tidak pernah dinotifikasi)');
+  assert.match(sent.at(-1)!, /hidup lagi \(11 menit\)/);
+
+  // Telegram gagal → dicoba lagi nanti, lastError tercatat
+  telegramUp = false;
+  await ingestReport(agent.id, { bootId: 'B4', bootedAt: D('18:30'), devices: devicesRec,
+    events: [{ key: 'rec:192.168.1.141', status: 'ONLINE', reason: 'RECOVERED', at: T(2) }] }, T(2));
+  assert.equal(await runMonitoringAlerts(T(2)), 0);
+  assert.match((await prisma.monitoringSettings.findFirstOrThrow()).lastError ?? '', /Telegram menolak/);
+  telegramUp = true;
+  assert.equal(await runMonitoringAlerts(T(3)), 1, 'terkirim setelah Telegram pulih');
+  assert.match(sent.at(-1)!, /berjalan lagi/);
+  assert.equal((await prisma.monitoringSettings.findFirstOrThrow()).lastError, null);
+  globalThis.fetch = realFetch;
+  await checkIntegrity('notifikasi');
+  console.log('\nContoh pesan Telegram:\n' + sent.join('\n---\n'));
+
   for (const k of ['pc', 'internet', '192.168.1.141', '192.168.1.34']) {
     console.log(k.padEnd(14), (await history(k)).join(' | '));
   }
   console.log('\nSEMUA TES LULUS');
 }
 
-main().finally(() => prisma.$disconnect());
+main()
+  .then(() => process.exit(0))
+  .catch((error) => {
+    console.error(error);
+    process.exit(1);
+  })
+  .finally(() => prisma.$disconnect());

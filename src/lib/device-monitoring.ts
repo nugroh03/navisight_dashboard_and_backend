@@ -19,7 +19,16 @@ import { prisma } from '@/lib/prisma';
  *   boot sebelumnya (dari journal agent), lalu ONLINE sejak waktu boot.
  */
 
-export const DEVICE_KINDS = ['PC', 'CAMERA', 'INTERNET'] as const;
+// RECORDING: rekaman Shinobi satu kamera (key "rec:<ip kamera>").
+export const DEVICE_KINDS = ['PC', 'CAMERA', 'INTERNET', 'RECORDING'] as const;
+export const RECORDING_KEY_PREFIX = 'rec:';
+/** IP kamera untuk perangkat CAMERA (key = IP) dan RECORDING (key = "rec:IP"). */
+export const cameraHostOf = (kind: string, key: string) =>
+  kind === 'CAMERA'
+    ? key
+    : kind === 'RECORDING' && key.startsWith(RECORDING_KEY_PREFIX)
+      ? key.slice(RECORDING_KEY_PREFIX.length)
+      : null;
 export const DEVICE_STATUSES = ['ONLINE', 'OFFLINE', 'UNKNOWN'] as const;
 export type DeviceStatus = (typeof DEVICE_STATUSES)[number];
 
@@ -192,9 +201,13 @@ async function ensureDevices(
     });
   }
 
-  const cameraHosts = [...declared.values()]
-    .filter((d) => d.kind === 'CAMERA')
-    .map((d) => d.key);
+  const cameraHosts = [
+    ...new Set(
+      [...declared.values()]
+        .map((d) => cameraHostOf(d.kind, d.key))
+        .filter((h): h is string => !!h)
+    ),
+  ];
   const cameras = cameraHosts.length
     ? await tx.camera.findMany({
         where: { isapiHost: { in: cameraHosts } },
@@ -204,7 +217,8 @@ async function ensureDevices(
   const cameraByHost = new Map(cameras.map((c) => [c.isapiHost!, c.id]));
 
   for (const d of declared.values()) {
-    const cameraId = d.kind === 'CAMERA' ? (cameraByHost.get(d.key) ?? null) : null;
+    const host = cameraHostOf(d.kind, d.key);
+    const cameraId = host ? (cameraByHost.get(host) ?? null) : null;
     await tx.monitoredDevice.upsert({
       where: { agentId_key: { agentId, key: d.key } },
       create: { agentId, key: d.key, kind: d.kind, name: d.name, cameraId },
@@ -427,7 +441,8 @@ const checkerState = globalThis as typeof globalThis & {
   __deviceMonitorBusy?: boolean;
 };
 
-// Pengecek di server: tandai agent yang berhenti melapor (> timeoutSec) sebagai hilang.
+// Pengecek di server: tandai agent yang berhenti melapor (> timeoutSec) sebagai hilang,
+// lalu kirim notifikasi Telegram bila diaktifkan.
 // Perangkatnya menjadi UNKNOWN/NO_HEARTBEAT sementara (provisional) sampai agent melapor lagi.
 export function startMonitoringChecker(intervalMs = 30_000) {
   if (checkerState.__deviceMonitorTimer) return;
@@ -437,6 +452,9 @@ export function startMonitoringChecker(intervalMs = 30_000) {
     try {
       const marked = await markLostAgents();
       if (marked > 0) console.warn(`[MONITORING] ${marked} agent berhenti melapor`);
+      // Import dinamis: monitoring-alerts juga mengimpor modul ini.
+      const { runMonitoringAlerts } = await import('@/lib/monitoring-alerts');
+      await runMonitoringAlerts();
     } catch (error) {
       console.error('[MONITORING] Pengecekan gagal:', error);
     } finally {

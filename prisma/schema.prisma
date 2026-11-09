@@ -294,20 +294,22 @@ model BackupSettings {
 // heartbeat hilang, lalu dikoreksi dengan data asli ketika agent kembali.
 
 model MonitorAgent {
-  id         String            @id @default(uuid()) @db.Uuid
-  name       String            @db.VarChar(100)
+  id          String            @id @default(uuid()) @db.Uuid
+  name        String            @db.VarChar(100)
   // SHA-256 (hex) dari token Bearer; token asli tidak disimpan.
-  tokenHash  String            @unique @map("token_hash") @db.VarChar(64)
+  tokenHash   String            @unique @map("token_hash") @db.VarChar(64)
   // Batas waktu tanpa laporan sebelum dianggap hilang.
-  timeoutSec Int               @default(180) @map("timeout_sec")
-  lastSeenAt DateTime?         @map("last_seen_at") @db.Timestamptz(6)
+  timeoutSec  Int               @default(180) @map("timeout_sec")
+  lastSeenAt  DateTime?         @map("last_seen_at") @db.Timestamptz(6)
   // /proc/sys/kernel/random/boot_id: berubah = PC menyala ulang.
-  lastBootId String?           @map("last_boot_id") @db.VarChar(64)
+  lastBootId  String?           @map("last_boot_id") @db.VarChar(64)
   // Diisi saat heartbeat hilang (oleh pengecek VPS); null = sedang melapor.
-  lostAt     DateTime?         @map("lost_at") @db.Timestamptz(6)
-  devices    MonitoredDevice[]
-  createdAt  DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt  DateTime          @updatedAt @map("updated_at") @db.Timestamptz(6)
+  lostAt      DateTime?         @map("lost_at") @db.Timestamptz(6)
+  // Notifikasi "PC tidak melapor" sudah terkirim (null = belum/sudah pulih).
+  alertSentAt DateTime?         @map("alert_sent_at") @db.Timestamptz(6)
+  devices     MonitoredDevice[]
+  createdAt   DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime          @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   @@map("monitor_agents")
 }
@@ -328,6 +330,8 @@ model MonitoredDevice {
   currentStatus String            @default("UNKNOWN") @map("current_status") @db.VarChar(20)
   statusSince   DateTime?         @map("status_since") @db.Timestamptz(6)
   lastCheckedAt DateTime?         @map("last_checked_at") @db.Timestamptz(6)
+  // Notifikasi gangguan perangkat ini sudah terkirim (null = belum/sudah pulih).
+  alertSentAt   DateTime?         @map("alert_sent_at") @db.Timestamptz(6)
   logs          DeviceStatusLog[]
   createdAt     DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt     DateTime          @updatedAt @map("updated_at") @db.Timestamptz(6)
@@ -354,4 +358,21 @@ model DeviceStatusLog {
   @@index([deviceId, startedAt])
   @@index([startedAt])
   @@map("device_status_logs")
+}
+
+// Pengaturan notifikasi Telegram riwayat perangkat (satu baris, id "default").
+model MonitoringSettings {
+  id               String    @id @default("default") @db.VarChar(20)
+  telegramEnabled  Boolean   @default(false) @map("telegram_enabled")
+  // Token bot terenkripsi (BACKUP_ENCRYPTION_KEY); tidak pernah dikirim ke browser.
+  telegramTokenEnc String?   @map("telegram_token_enc") @db.Text
+  telegramChatId   String?   @map("telegram_chat_id") @db.VarChar(64)
+  // Gangguan dikirim setelah berlangsung selama ini (menit), agar kedipan singkat tidak membanjiri chat.
+  alertDelayMin    Int       @default(5) @map("alert_delay_min")
+  notifyRecovery   Boolean   @default(true) @map("notify_recovery")
+  lastError        String?   @map("last_error") @db.Text
+  lastSentAt       DateTime? @map("last_sent_at") @db.Timestamptz(6)
+  updatedAt        DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@map("monitoring_settings")
 }
