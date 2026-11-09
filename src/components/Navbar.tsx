@@ -22,25 +22,40 @@ export default function Navbar() {
     { name: 'Maps', href: '#maps' },
   ];
 
+  const closeMenu = () => setIsMobileMenuOpen(false);
+
   return (
-    <div className="fixed top-0 left-0 right-0 z-50 flex justify-center pt-6 px-4 pointer-events-none">
+    <div className="fixed top-0 left-0 right-0 z-50 flex justify-center pt-4 px-4 md:pt-6 pointer-events-none">
+      {/* Latar gelap di belakang menu mobile; tap untuk menutup */}
+      {isMobileMenuOpen && (
+        <div
+          className="fixed inset-0 bg-slate-950/50 backdrop-blur-[2px] pointer-events-auto md:hidden"
+          onClick={closeMenu}
+          aria-hidden="true"
+        />
+      )}
+
       <nav
-        className={`w-full max-w-7xl rounded-full transition-all duration-300 pointer-events-auto bg-white/90 backdrop-blur-md border border-white/50 py-3 px-6 shadow-lg`}
+        className={`relative w-full max-w-7xl transition-all duration-300 pointer-events-auto backdrop-blur-md border border-white/50 shadow-lg py-2 pl-5 pr-2 md:py-3 md:px-6 rounded-full ${
+          isMobileMenuOpen
+            ? 'bg-white max-md:rounded-3xl'
+            : 'bg-white/90'
+        }`}
       >
         <div className="flex items-center justify-between">
           
           {/* Logo */}
-          <div className="flex-shrink-0 flex items-center gap-3">
-            <div className="relative w-32 h-8 md:w-36 md:h-9">
+          <a href="#hero" onClick={closeMenu} className="flex-shrink-0 flex items-center gap-3">
+            <div className="relative w-28 h-10 md:w-36 md:h-9">
                <Image
                 src="/trans_laut_logo.png"
                 alt="Trans Laut Jatim"
                 fill
-                className="object-contain"
+                className="object-contain object-left"
                 priority
               />
             </div>
-          </div>
+          </a>
 
           {/* Desktop Menu */}
           <div className="hidden md:flex items-center space-x-2">
@@ -67,37 +82,39 @@ export default function Navbar() {
           {/* Mobile Menu Button */}
           <div className="md:hidden">
             <button
+              type="button"
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-              className="p-2 rounded-full hover:bg-slate-100 text-slate-800"
+              className="flex h-11 w-11 items-center justify-center rounded-full text-slate-800 transition active:bg-slate-200 hover:bg-slate-100"
+              aria-label={isMobileMenuOpen ? 'Tutup menu' : 'Buka menu'}
+              aria-expanded={isMobileMenuOpen}
+              aria-controls="mobile-menu"
             >
               {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
             </button>
           </div>
         </div>
 
-        {/* Mobile Menu (Integrated into floating island context) */}
+        {/* Mobile Menu: menyatu di dalam kartu navbar */}
         {isMobileMenuOpen && (
-          <div className="absolute top-full left-0 right-0 mt-2 p-2">
-             <div className="bg-white/95 backdrop-blur-xl rounded-2xl shadow-xl border border-white/50 p-4 space-y-2">
-              {navLinks.map((link) => (
-                <a
-                  key={link.name}
-                  href={link.href}
-                  className="block px-4 py-3 text-base font-medium text-slate-700 hover:text-blue-600 hover:bg-slate-50 rounded-xl"
-                  onClick={() => setIsMobileMenuOpen(false)}
-                >
-                  {link.name}
-                </a>
-              ))}
-              <div className="pt-2">
-                <Link
-                  href="/login"
-                  className="block w-full text-center bg-blue-600 text-white px-5 py-3 rounded-xl font-bold shadow-lg"
-                  onClick={() => setIsMobileMenuOpen(false)}
-                >
-                  Masuk
-                </Link>
-              </div>
+          <div id="mobile-menu" className="md:hidden mt-2 mr-3 mb-3 border-t border-slate-100 pt-3 space-y-1">
+            {navLinks.map((link) => (
+              <a
+                key={link.name}
+                href={link.href}
+                className="block px-4 py-3 text-base font-semibold !text-slate-800 rounded-xl transition hover:bg-slate-50 active:bg-slate-100"
+                onClick={closeMenu}
+              >
+                {link.name}
+              </a>
+            ))}
+            <div className="pt-2">
+              <Link
+                href="/login"
+                className="block w-full text-center bg-blue-600 !text-white px-5 py-3.5 rounded-xl text-base font-bold shadow-lg shadow-blue-600/30 transition active:scale-[0.98] active:bg-blue-700"
+                onClick={closeMenu}
+              >
+                Masuk
+              </Link>
             </div>
           </div>
         )}

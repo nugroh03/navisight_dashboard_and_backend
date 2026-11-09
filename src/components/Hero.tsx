@@ -5,7 +5,7 @@ import Image from 'next/image';
 
 export default function Hero() {
   return (
-    <div id="hero" className="relative w-full h-screen min-h-[600px] flex items-center justify-center overflow-hidden bg-slate-900">
+    <div id="hero" className="relative w-full min-h-screen min-h-dvh pt-28 pb-24 md:pt-32 flex items-center justify-center overflow-hidden bg-slate-900">
       
       {/* Background with Gradient/Pattern */}
       <div className="absolute inset-0 z-0">
@@ -19,7 +19,7 @@ export default function Hero() {
       <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center flex flex-col items-center">
         
         {/* Logo or specialized icon */}
-        <div className="mb-8 relative w-40 h-40 md:w-56 md:h-56 animate-float">
+        <div className="mb-6 md:mb-8 relative w-28 h-28 sm:w-40 sm:h-40 md:w-56 md:h-56 animate-float">
             {/* Using logo.png or similar if available, else standard Trans Laut */}
              <div className="absolute inset-0 bg-white/5 rounded-full blur-xl"></div>
              <Image
@@ -31,20 +31,20 @@ export default function Hero() {
               />
         </div>
 
-        <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold text-white mb-6 tracking-tight">
+        <h1 className="text-3xl sm:text-4xl md:text-6xl lg:text-7xl font-bold text-white mb-4 md:mb-6 tracking-tight">
           <span className="block text-transparent bg-clip-text bg-gradient-to-r from-blue-200 via-white to-cyan-200">
             Trans Laut Jawa Timur
           </span>
         </h1>
         
-        <p className="max-w-2xl mx-auto text-lg md:text-xl text-slate-300 mb-10 leading-relaxed">
+        <p className="max-w-2xl mx-auto text-base sm:text-lg md:text-xl text-slate-300 mb-8 md:mb-10 leading-relaxed">
           Layanan transportasi laut modern yang menghubungkan Probolinggo dan Madura dengan cepat, aman, dan nyaman.
         </p>
 
         <div className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto">
           <Link 
             href="#maps" 
-            className="px-8 py-4 bg-white hover:bg-blue-50 text-blue-900 rounded-full font-bold text-lg transition-all shadow-xl shadow-blue-900/20 hover:scale-105 active:scale-95 flex items-center justify-center gap-2 group"
+            className="px-8 py-3.5 sm:py-4 bg-white hover:bg-blue-50 !text-blue-900 rounded-full font-bold text-base sm:text-lg transition-all shadow-xl shadow-blue-900/20 hover:scale-105 active:scale-95 flex items-center justify-center gap-2 group"
           >
             <span>Pantau Kapal</span>
             <svg className="w-5 h-5 group-hover:translate-x-1 transition-transform text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -53,7 +53,7 @@ export default function Hero() {
           </Link>
           <Link 
             href="#translautjatim" 
-            className="px-8 py-4 bg-transparent hover:bg-white/10 text-white border-2 border-white rounded-full font-bold text-lg transition-all hover:scale-105 active:scale-95 flex items-center justify-center shadow-lg"
+            className="px-8 py-3.5 sm:py-4 bg-transparent hover:bg-white/10 !text-white border-2 border-white rounded-full font-bold text-base sm:text-lg transition-all hover:scale-105 active:scale-95 flex items-center justify-center shadow-lg"
           >
             Informasi Layanan
           </Link>
@@ -61,7 +61,7 @@ export default function Hero() {
       </div>
       
       {/* Scroll Indicator */}
-      <div className="absolute bottom-10 left-1/2 transform -translate-x-1/2 animate-bounce text-slate-400">
+      <div className="absolute bottom-6 md:bottom-10 left-1/2 transform -translate-x-1/2 animate-bounce text-slate-400">
         <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
         </svg>
