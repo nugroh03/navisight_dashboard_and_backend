@@ -8,6 +8,7 @@ import {
   Users,
   FolderKanban,
   Rocket,
+  Activity,
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -64,6 +65,14 @@ export function MenuModal({ isOpen, onClose }: MenuModalProps) {
       label: 'Projects',
       href: '/dashboard/projects',
       color: 'bg-pink-50 text-pink-600',
+      comingSoon: false,
+      allowedRoles: ['ADMINISTRATOR'],
+    },
+    {
+      icon: Activity,
+      label: 'Riwayat Perangkat',
+      href: '/dashboard/devices',
+      color: 'bg-emerald-50 text-emerald-600',
       comingSoon: false,
       allowedRoles: ['ADMINISTRATOR'],
     },
