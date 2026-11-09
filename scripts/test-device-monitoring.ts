@@ -9,6 +9,7 @@ import {
   hashAgentToken,
   ingestReport,
   markLostAgents,
+  startMonitoringChecker,
   type MonitoringReport,
 } from '@/lib/device-monitoring';
 
@@ -180,6 +181,25 @@ async function main() {
   const r2 = await ingestReport(agent.id, { ...report('B4', '18:30', []), bootHistory }, D('18:41'));
   assert.equal(r2.imported, 0, 'impor ulang tidak menambah apa pun');
   await checkIntegrity('impor riwayat');
+
+  // 9) Pengecek berkala (startMonitoringChecker) menandai agent yang diam > timeoutSec
+  await prisma.monitorAgent.update({
+    where: { id: agent.id },
+    data: { lastSeenAt: new Date(Date.now() - 200_000), lostAt: null },
+  });
+  startMonitoringChecker(100);
+  startMonitoringChecker(100); // panggilan kedua diabaikan (tidak membuat timer ganda)
+  for (let i = 0; i < 50; i++) {
+    if ((await prisma.monitorAgent.findUniqueOrThrow({ where: { id: agent.id } })).lostAt) break;
+    await new Promise((r) => setTimeout(r, 100));
+  }
+  assert.ok(
+    (await prisma.monitorAgent.findUniqueOrThrow({ where: { id: agent.id } })).lostAt,
+    'pengecek berkala menandai agent hilang'
+  );
+  assert.equal((await history('pc')).at(-1)?.endsWith('(prov)'), true, 'PC jadi UNKNOWN sementara');
+  clearInterval((globalThis as { __deviceMonitorTimer?: NodeJS.Timeout }).__deviceMonitorTimer);
+  await checkIntegrity('pengecek berkala');
 
   for (const k of ['pc', 'internet', '192.168.1.141', '192.168.1.34']) {
     console.log(k.padEnd(14), (await history(k)).join(' | '));

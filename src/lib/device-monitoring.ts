@@ -421,3 +421,27 @@ export async function markLostAgents(now = new Date()) {
   }
   return marked;
 }
+
+const checkerState = globalThis as typeof globalThis & {
+  __deviceMonitorTimer?: ReturnType<typeof setInterval>;
+  __deviceMonitorBusy?: boolean;
+};
+
+// Pengecek di server: tandai agent yang berhenti melapor (> timeoutSec) sebagai hilang.
+// Perangkatnya menjadi UNKNOWN/NO_HEARTBEAT sementara (provisional) sampai agent melapor lagi.
+export function startMonitoringChecker(intervalMs = 30_000) {
+  if (checkerState.__deviceMonitorTimer) return;
+  checkerState.__deviceMonitorTimer = setInterval(async () => {
+    if (checkerState.__deviceMonitorBusy) return;
+    checkerState.__deviceMonitorBusy = true;
+    try {
+      const marked = await markLostAgents();
+      if (marked > 0) console.warn(`[MONITORING] ${marked} agent berhenti melapor`);
+    } catch (error) {
+      console.error('[MONITORING] Pengecekan gagal:', error);
+    } finally {
+      checkerState.__deviceMonitorBusy = false;
+    }
+  }, intervalMs);
+  checkerState.__deviceMonitorTimer.unref?.();
+}
